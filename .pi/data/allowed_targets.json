@@ -1,0 +1,39 @@
+{
+  "allowed_targets": [
+    "localhost",
+    "127.0.0.1",
+    "::1",
+    "scanme.nmap.org",
+    "youtube.com",
+    "pentest-ground.com",
+    "https://pentest-ground.com:4280/",
+    "https://pentest-ground.com:5013/",
+    "demo.testfire.net",
+    "testfire.net",
+    "testphp.vulnweb.com",
+    "testhtml5.vulnweb.com",
+    "testasp.vulnweb.com",
+    "vulnweb.com"
+  ],
+  "notes": [
+    "Only add targets you own or are authorized to scan.",
+    "Unauthorized scanning may be illegal.",
+    "Internal network examples: 192.168.1.100, 10.0.0.50",
+    "Owned domain examples: myapp.com, test.mycompany.vn",
+    "Legal testing examples included for classroom demos:",
+    "- pentest-ground.com",
+    "- demo.testfire.net",
+    "- vulnweb.com test domains"
+  ],
+  "examples": {
+    "internal_network": [
+      "192.168.1.100",
+      "192.168.1.1",
+      "10.0.0.50"
+    ],
+    "your_domains": [
+      "myapp.com",
+      "test.mycompany.vn"
+    ]
+  }
+}

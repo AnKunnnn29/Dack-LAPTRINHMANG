@@ -1,0 +1,6 @@
+.env
+__pycache__/
+*.pyc
+.pi/logs/*
+.pi/results/*
+.pi/triage/*
