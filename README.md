@@ -1,38 +1,64 @@
 # Network Recon + Risk Profiler
 
-Topic 02 final project for Network Programming with AI/ML for Cybersecurity.
+Final project **Topic 02** for Network Programming with AI/ML for Cybersecurity.
 
-## One-line Idea
+## Topic 02 Goal
 
-The pipeline runs port scanning, DNS enumeration, and banner grabbing in parallel, then combines the findings into an ML-based risk score and a MITRE-mapped Markdown report.
+Build a multi-agent pipeline that runs **port scanning**, **DNS enumeration**, and
+**banner grabbing** in parallel, then combines the findings into an **ML-based
+risk score** and a **MITRE-mapped Markdown report**.
 
-## Easy-to-Remember Pipeline
+## Pipeline To Remember
 
-1. **Stage 1 - Parallel Recon**
-   - `recon/port_scanner.py`: finds open TCP ports.
-   - `recon/dns_enum.py`: collects A, MX, NS, TXT records.
-   - `recon/banner_grabber.py`: collects service banners.
+```text
+Stage 1 - Parallel Recon
+  port_scan_agent      -> .pi/triage/port_scan_result.json
+  dns_enum_agent       -> .pi/triage/dns_enum_result.json
+  banner_grab_agent    -> .pi/triage/banner_result.json
 
-2. **Stage 2 - ML Risk Scoring**
-   - `risk/risk_features.py`: turns recon output into features.
-   - `risk/risk_model.py`: predicts Low/Medium/High risk with a small KNN model.
-   - `risk/risk_findings.py`: creates findings, MITRE mapping, and recommendations.
+Stage 2 - ML Risk Scoring
+  risk_score_agent     -> .pi/triage/risk_profile.json
 
-3. **Stage 3 - Report Generation**
-   - `reporting/ai_reporter.py`: writes `.pi/results/ket_qua.md`.
-   - Uses GPT-4o when API key is available.
-   - Falls back to an offline Markdown template when API is unavailable.
+Stage 3 - Report Generation
+  report_agent         -> .pi/results/ket_qua.md
+```
 
-## Key Features
+The most important Topic 02 point is Stage 1 parallelism:
 
-- Socket-based TCP port scanning.
-- DNS enumeration with `dnspython`.
-- Socket-based banner grabbing.
-- Stage 1 parallelism with `ThreadPoolExecutor`.
-- Per-port parallelism inside the port scanner for faster large ranges.
-- Explainable supervised KNN risk scoring.
-- MITRE ATT&CK mapping for recon findings.
-- Permission gate for safer authorized scanning.
+```text
+/parallel
+  scan_ports(target, ports)
+  enumerate_dns(target)
+  grab_banners(target, ports)
+/join
+```
+
+In runnable Python, this is implemented with `ThreadPoolExecutor` in
+`.pi/tools/main_pipeline.py`.
+
+## Requirement Mapping
+
+| Topic 02 requirement | Where it is implemented |
+| --- | --- |
+| 3+ sequential stages | `.pi/tools/main_pipeline.py` |
+| Parallel stage | `run_recon_stage()` in `.pi/tools/main_pipeline.py` |
+| Agent definitions | `.pi/agents/*.md` |
+| Skills | `.pi/skills/recon`, `.pi/skills/risk_scoring`, `.pi/skills/reporting` |
+| Python tools | `.pi/tools/recon`, `.pi/tools/risk`, `.pi/tools/reporting` |
+| Chain/orchestration | `.pi/chains/recon_risk_pipeline.chain.md` |
+| Prompt file | `.pi/prompts/report_prompt.md` |
+| End-to-end demo target | localhost with Python's built-in `http.server` |
+| GPT/agent loop extension | `.pi/tools/pi_recon_agent.py` |
+
+## Code Design
+
+The code is intentionally simple for oral defense:
+
+- Recon tools use normal Python sockets and short timeouts.
+- Stage 1 runs three independent tools at the same time.
+- Risk scoring uses a small KNN model with explainable numeric features.
+- Report generation uses GPT when an API key exists and an offline template when it does not.
+- Safety gate blocks non-allowlisted targets unless `--authorized` is explicitly provided.
 
 ## Install
 
@@ -41,9 +67,7 @@ cd security-agents
 pip install -r requirements.txt
 ```
 
-## OpenAI Config
-
-Create or edit `.env`:
+Create `.env` only if you want GPT report or agentic mode:
 
 ```env
 OPENAI_API_KEY=your_api_key_here
@@ -51,57 +75,23 @@ OPENAI_BASE_URL=
 OPENAI_MODEL=gpt-4o
 ```
 
-OpenRouter example:
+The normal pipeline still works without an API key.
 
-```env
-OPENAI_API_KEY=your_openrouter_key_here
-OPENAI_BASE_URL=https://openrouter.ai/api/v1
-OPENAI_MODEL=openai/gpt-4o
-```
-
-If no API key is available, the project still runs and generates an offline report.
-
-## Run
-
-```bash
-python .pi/tools/main_pipeline.py --target localhost
-```
-
-With custom ports:
-
-```bash
-python .pi/tools/main_pipeline.py --target localhost --ports "3000,8000,8080"
-python .pi/tools/main_pipeline.py --target localhost --ports "1-1000"
-```
-
-For a target outside the allowlist, only run when you have permission:
-
-```bash
-python .pi/tools/main_pipeline.py --target example.com --authorized
-```
-
-## Local Lab Demo
+## Run The Offline-Stable Pipeline
 
 Terminal 1:
 
 ```bash
-python lab_target_server.py
+python -m http.server 8000 --bind 127.0.0.1
 ```
 
 Terminal 2:
 
 ```bash
-python .pi/tools/main_pipeline.py --target localhost --ports "3000,8000,8080,3306,5432,6379"
+python .pi/tools/main_pipeline.py --target localhost --ports "8000,8080,3306,5432,6379"
 ```
 
-The lab server opens safe fake services on:
-
-- `3000`, `8000`, `8080`: HTTP demo services.
-- `3306`: fake MySQL banner.
-- `5432`: fake PostgreSQL banner.
-- `6379`: fake Redis banner.
-
-## Outputs
+Outputs:
 
 - `.pi/triage/port_scan_result.json`
 - `.pi/triage/dns_enum_result.json`
@@ -110,9 +100,60 @@ The lab server opens safe fake services on:
 - `.pi/results/ket_qua.md`
 - `.pi/logs/pipeline_run.log`
 
+## Run The Week 5 Agentic Mode
+
+This mode requires `OPENAI_API_KEY`.
+
+```bash
+python .pi/tools/pi_recon_agent.py --target localhost --ports "8000,8080,3306,5432,6379"
+```
+
+Why this file exists:
+
+- It defines OpenAI tool schemas.
+- It implements the Observe-Think-Act agent loop.
+- It preserves assistant `tool_calls` and appends `tool` results.
+- It executes a batch of requested tool calls before the next model call.
+- It reuses the same simple Topic 02 tools, so the core project remains easy to explain.
+
+## Run Tests
+
+```bash
+python -m unittest discover -s tests
+python -m compileall test_api.py .pi/tools
+```
+
+## Oral Defense Notes
+
+Full question bank and coding drills are in `ORAL_DEFENSE_QA.md`.
+
+Short answer for "What does your project do?":
+
+> My project is Topic 02: Network Recon + Risk Profiler. It runs port scanning,
+> DNS enumeration, and banner grabbing in parallel, then extracts simple features,
+> predicts Low/Medium/High risk with KNN, maps findings to MITRE ATT&CK, and
+> writes a defensive Markdown report.
+
+Short answer for "Where is parallelism?":
+
+> In Stage 1. `main_pipeline.py` submits port scan, DNS enum, and banner grab to
+> `ThreadPoolExecutor(max_workers=3)` because they have no data dependency.
+
+Short answer for "Where is ML?":
+
+> `risk_features.py` converts recon output into numeric features, and
+> `risk_model.py` compares the vector with small labelled training samples using
+> KNN. The model is simple but explainable for a classroom project.
+
+Short answer for "Where is the AI agent?":
+
+> The stable pipeline is deterministic. The Week 5 agentic extension is
+> `pi_recon_agent.py`, which exposes the same tools through OpenAI function
+> calling and runs the Observe-Think-Act loop.
+
 ## Safety
 
-This project is for learning and defensive assessment only:
+This project is defensive and read-only:
 
 - Scan only localhost, lab machines, or authorized targets.
 - Do not exploit.

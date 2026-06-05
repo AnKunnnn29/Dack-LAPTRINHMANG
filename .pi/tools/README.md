@@ -9,6 +9,12 @@ Use this file as a quick memory map when presenting the code.
   - Stage 2: scores risk with ML.
   - Stage 3: generates Markdown report.
 
+- `pi_recon_agent.py`
+  - Week 5 agentic extension.
+  - Defines OpenAI tool schemas for the same project tools.
+  - Runs the Observe-Think-Act loop with `tool_calls` and `tool` messages.
+  - Requires `OPENAI_API_KEY`; the normal pipeline works offline.
+
 ## Common Helpers
 
 - `common/tool_utils.py`
@@ -64,3 +70,10 @@ Use this file as a quick memory map when presenting the code.
 ## Compatibility Wrappers
 
 Files like `port_scanner.py`, `risk_scorer.py`, and `ai_reporter.py` directly inside `.pi/tools/` are wrappers. They keep old commands working while real code lives in the folders above.
+
+## Quick Validation
+
+```bash
+python -m unittest discover -s tests
+python -m compileall test_api.py .pi/tools
+```

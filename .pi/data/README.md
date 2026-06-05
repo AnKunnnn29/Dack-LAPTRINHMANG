@@ -1,72 +1,59 @@
-# Quản lý Allowed Targets
+# Allowed Targets
 
-## Cách 1: Sửa trực tiếp file JSON
+This folder stores safe target configuration for Topic 02.
 
-Mở file `.pi/data/allowed_targets.json` và thêm target vào mảng `allowed_targets`:
+## Why This Exists
 
-```json
-{
-  "allowed_targets": [
-    "localhost",
-    "127.0.0.1",
-    "::1",
-    "scanme.nmap.org",
-    "192.168.1.100",
-    "myapp.com"
-  ]
-}
+Port scanning must be scoped. The pipeline should run only on:
+
+- localhost
+- lab machines
+- targets you own
+- targets you are explicitly authorized to test
+
+## Current Config
+
+The allowlist is stored in:
+
+```text
+.pi/data/allowed_targets.json
 ```
 
-## Cách 2: Dùng script helper
+Safe default targets:
 
-### Xem danh sách targets hiện tại:
+- `localhost`
+- `127.0.0.1`
+- `::1`
+- `scanme.nmap.org`
+
+## Manage Targets
+
+List current targets:
+
 ```bash
 python .pi/tools/manage_targets.py list
 ```
 
-### Thêm target mới:
+Add an authorized target:
+
 ```bash
 python .pi/tools/manage_targets.py add 192.168.1.100
-python .pi/tools/manage_targets.py add myapp.com
 ```
 
-### Xoá target:
+Remove a target:
+
 ```bash
 python .pi/tools/manage_targets.py remove 192.168.1.100
 ```
 
-## Cách 3: Dùng flag --authorized
+## Temporary Authorization
 
-Nếu không muốn thêm vào whitelist, dùng flag `--authorized`:
+For a target outside the allowlist, use `--authorized` only if you truly have permission:
 
 ```bash
 python .pi/tools/main_pipeline.py --target 192.168.1.100 --authorized
 ```
 
-⚠️ **Chỉ dùng khi bạn có quyền scan target đó!**
+## Safety Rule
 
-## Ví dụ targets hợp lệ:
-
-### ✅ An toàn (không cần --authorized):
-- `localhost`, `127.0.0.1` - Máy local
-- `scanme.nmap.org` - Target công khai cho testing
-
-### ✅ Cần thêm vào whitelist hoặc dùng --authorized:
-- `192.168.1.x` - Mạng nội bộ của bạn
-- `10.0.0.x` - Mạng nội bộ của bạn
-- `myapp.com` - Domain/server của bạn
-
-### ❌ KHÔNG BAO GIỜ scan:
-- Website/server của người khác
-- Hệ thống công ty không được phép
-- Bất kỳ target nào bạn không có quyền
-
-## Lưu ý pháp lý:
-
-🚨 **Scan port/network mà không được phép là BẤT HỢP PHÁP ở hầu hết các quốc gia!**
-
-Chỉ scan:
-1. Máy của bạn (localhost)
-2. Mạng nội bộ của bạn (với sự đồng ý)
-3. Target công khai cho testing (như scanme.nmap.org)
-4. Hệ thống bạn được ủy quyền rõ ràng
+Never scan a system you do not own or do not have permission to test.

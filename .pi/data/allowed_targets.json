@@ -4,7 +4,6 @@
     "127.0.0.1",
     "::1",
     "scanme.nmap.org",
-    "youtube.com",
     "pentest-ground.com",
     "https://pentest-ground.com:4280/",
     "https://pentest-ground.com:5013/",
@@ -20,10 +19,8 @@
     "Unauthorized scanning may be illegal.",
     "Internal network examples: 192.168.1.100, 10.0.0.50",
     "Owned domain examples: myapp.com, test.mycompany.vn",
-    "Legal testing examples included for classroom demos:",
-    "- pentest-ground.com",
-    "- demo.testfire.net",
-    "- vulnweb.com test domains"
+    "Classroom/demo testing targets included: scanme.nmap.org, pentest-ground.com, demo.testfire.net, and vulnweb.com test domains.",
+    "youtube.com is intentionally not allowlisted by default because it is not a lab scanning target. Use --authorized only if you truly have permission."
   ],
   "examples": {
     "internal_network": [
