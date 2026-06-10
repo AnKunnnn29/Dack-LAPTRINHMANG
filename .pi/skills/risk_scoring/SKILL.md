@@ -2,8 +2,8 @@
 
 ## Description
 
-Skill nay gom ket qua reconnaissance va du doan rui ro bang supervised KNN model nho.
-Muc tieu la de sinh vien de giai thich feature engineering va ML classification.
+Skill nay gom ket qua reconnaissance va du doan rui ro bang Isolation Forest model nho.
+Muc tieu la de sinh vien de giai thich feature engineering va anomaly detection.
 
 ## Inputs
 
@@ -31,6 +31,6 @@ Muc tieu la de sinh vien de giai thich feature engineering va ML classification.
 
 1. Doc danh sach port dang mo.
 2. Trich xuat feature tu open ports, service groups, DNS records va banner version leaks.
-3. Chay KNN classifier tren training samples nho.
+3. Chay Isolation Forest tren baseline exposure samples nho.
 4. Tao MITRE ATT&CK mapping cho finding phong thu.
 5. Ghi profile ra JSON.

@@ -4,15 +4,15 @@ import json
 import os
 
 
+DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
+
+
 def generate_ai_report(profile: dict, prompt: str, model: str) -> str:
     """Call OpenAI API to create the Markdown report."""
     from openai import OpenAI
 
-    base_url = os.getenv("OPENAI_BASE_URL", "").strip()
-    if base_url:
-        client = OpenAI(base_url=base_url)
-    else:
-        client = OpenAI()
+    base_url = os.getenv("OPENAI_BASE_URL", "").strip() or DEFAULT_OPENAI_BASE_URL
+    client = OpenAI(base_url=base_url)
 
     response = client.chat.completions.create(
         model=model,

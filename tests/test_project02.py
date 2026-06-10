@@ -18,6 +18,7 @@ TOOLS_DIR = PROJECT_ROOT / ".pi" / "tools"
 sys.path.insert(0, str(TOOLS_DIR))
 
 from common.tool_utils import is_target_allowed, parse_ports, parse_target  # noqa: E402
+from monitoring.detectors import detect_threats, load_events  # noqa: E402
 from risk.risk_scorer import score_risk  # noqa: E402
 
 
@@ -56,8 +57,51 @@ class Project02Tests(unittest.TestCase):
         self.assertEqual(profile["target"], "localhost")
         self.assertIn(profile["risk_level"], {"Low", "Medium", "High"})
         self.assertIn("ml_model", profile)
+        self.assertEqual(profile["ml_model"]["name"], "SimpleIsolationForestRiskModel")
+        self.assertIn("anomaly_score", profile["ml_model"])
+        self.assertIn("calibrated_anomaly", profile["ml_model"])
         self.assertIn("mitre_mapping", profile)
         self.assertIn("recommendations", profile)
+
+    def test_agent_definitions_include_orchestration_and_safety(self) -> None:
+        agents_dir = PROJECT_ROOT / ".pi" / "agents"
+        expected_agents = {
+            "orchestrator_agent.md",
+            "permission_gate_agent.md",
+            "port_scan_agent.md",
+            "dns_enum_agent.md",
+            "banner_grab_agent.md",
+            "risk_score_agent.md",
+            "report_agent.md",
+            "log_monitor_agent.md",
+            "threat_detection_agent.md",
+            "alert_agent.md",
+        }
+
+        existing_agents = {path.name for path in agents_dir.glob("*.md")}
+        self.assertTrue(expected_agents.issubset(existing_agents))
+
+    def test_monitoring_detects_sample_threat_categories(self) -> None:
+        sample_log = PROJECT_ROOT / ".pi" / "data" / "sample_security_events.log"
+        events = load_events(sample_log)
+        summary = detect_threats(events)
+        categories = {alert["category"] for alert in summary["alerts"]}
+
+        self.assertGreaterEqual(summary["alert_count"], 4)
+        self.assertIn("malware_indicator", categories)
+        self.assertIn("brute_force", categories)
+        self.assertIn("exploit_attempt", categories)
+        self.assertIn("traffic_anomaly", categories)
+
+    def test_monitoring_detects_public_loghub_openssh_brute_force(self) -> None:
+        public_log = PROJECT_ROOT / ".pi" / "data" / "loghub_openssh_2k.log"
+        events = load_events(public_log)
+        summary = detect_threats(events)
+        categories = {alert["category"] for alert in summary["alerts"]}
+
+        self.assertEqual(len(events), 2000)
+        self.assertIn("brute_force", categories)
+        self.assertGreaterEqual(summary["alert_count"], 1)
 
 
 if __name__ == "__main__":

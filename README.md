@@ -11,6 +11,9 @@ risk score** and a **MITRE-mapped Markdown report**.
 ## Pipeline To Remember
 
 ```text
+Stage 0 - Safety Gate
+  permission_gate_agent -> allow/block decision
+
 Stage 1 - Parallel Recon
   port_scan_agent      -> .pi/triage/port_scan_result.json
   dns_enum_agent       -> .pi/triage/dns_enum_result.json
@@ -21,6 +24,11 @@ Stage 2 - ML Risk Scoring
 
 Stage 3 - Report Generation
   report_agent         -> .pi/results/ket_qua.md
+
+Stage 4 - Defensive Monitoring
+  log_monitor_agent    -> read authorized logs
+  threat_detection_agent -> detect malware/brute force/exploit/traffic anomaly
+  alert_agent          -> .pi/alerts/alerts.json and alert_report.md
 ```
 
 The most important Topic 02 point is Stage 1 parallelism:
@@ -56,9 +64,24 @@ The code is intentionally simple for oral defense:
 
 - Recon tools use normal Python sockets and short timeouts.
 - Stage 1 runs three independent tools at the same time.
-- Risk scoring uses a small KNN model with explainable numeric features.
+- Risk scoring uses a small Isolation Forest anomaly model with explainable numeric features.
 - Report generation uses GPT when an API key exists and an offline template when it does not.
 - Safety gate blocks non-allowlisted targets unless `--authorized` is explicitly provided.
+
+## Agent Design
+
+The `.pi/agents` folder defines seven agents:
+
+- `orchestrator_agent`: coordinates the full pipeline and handoffs.
+- `permission_gate_agent`: blocks unauthorized targets before network activity.
+- `port_scan_agent`: checks candidate TCP ports.
+- `dns_enum_agent`: collects A/MX/NS/TXT DNS records when applicable.
+- `banner_grab_agent`: collects lightweight service banners.
+- `risk_score_agent`: runs Isolation Forest risk scoring and MITRE mapping.
+- `report_agent`: creates the final defensive Markdown report.
+- `log_monitor_agent`: monitors authorized log files.
+- `threat_detection_agent`: detects malware-like, brute-force, exploit, and traffic anomaly signals.
+- `alert_agent`: writes alerts and optionally sends Discord/email notifications.
 
 ## Install
 
@@ -102,7 +125,24 @@ Outputs:
 
 ## Run The Week 5 Agentic Mode
 
-This mode requires `OPENAI_API_KEY`.
+This mode can run with OpenAI API or free local Ollama.
+
+Free local Ollama setup:
+
+```env
+OPENAI_API_KEY=ollama
+OPENAI_MODEL=llama3.1:8b
+OPENAI_BASE_URL=http://127.0.0.1:11434/v1
+```
+
+Then start or verify Ollama:
+
+```bash
+ollama pull llama3.1
+ollama serve
+```
+
+In another terminal, run:
 
 ```bash
 python .pi/tools/pi_recon_agent.py --target localhost --ports "8000,8080,3306,5432,6379"
@@ -114,6 +154,7 @@ Why this file exists:
 - It implements the Observe-Think-Act agent loop.
 - It preserves assistant `tool_calls` and appends `tool` results.
 - It executes a batch of requested tool calls before the next model call.
+- It can parse local-model JSON tool plans when Ollama returns tool calls as text.
 - It reuses the same simple Topic 02 tools, so the core project remains easy to explain.
 
 ## Run Tests
@@ -123,16 +164,57 @@ python -m unittest discover -s tests
 python -m compileall test_api.py .pi/tools
 ```
 
-## Oral Defense Notes
+## Run Defensive Monitoring Demo
 
-Full question bank and coding drills are in `ORAL_DEFENSE_QA.md`.
+This extension detects risk signals from an authorized sample log. It does not
+execute malware, brute force, exploits, or harmful traffic.
+
+```bash
+python .pi/tools/threat_monitor.py --log-file .pi/data/sample_security_events.log
+```
+
+Public Loghub OpenSSH demo:
+
+```bash
+python .pi/tools/threat_monitor.py --log-file .pi/data/loghub_openssh_2k.log --output-dir .pi/alerts/loghub_openssh
+```
+
+The public OpenSSH log is from LogPAI/loghub, a public system log dataset for
+AI-driven log analytics. The OpenSSH README says the log was collected from an
+OpenSSH server in their lab over 28+ days.
+
+Outputs:
+
+- `.pi/alerts/alerts.json`
+- `.pi/alerts/alert_report.md`
+
+Live polling demo:
+
+```bash
+python .pi/tools/threat_monitor.py --live --duration 20 --poll-interval 2
+```
+
+Optional Discord/email alerting is controlled by `.env` variables shown in
+`.env.example`.
+
+Public log files included:
+
+- `.pi/data/loghub_openssh_2k.log`
+- `.pi/data/loghub_apache_2k.log`
+
+Source:
+
+- https://github.com/logpai/loghub/tree/master/OpenSSH
+- https://github.com/logpai/loghub/tree/master/Apache
+
+## Oral Defense Notes
 
 Short answer for "What does your project do?":
 
 > My project is Topic 02: Network Recon + Risk Profiler. It runs port scanning,
 > DNS enumeration, and banner grabbing in parallel, then extracts simple features,
-> predicts Low/Medium/High risk with KNN, maps findings to MITRE ATT&CK, and
-> writes a defensive Markdown report.
+> predicts Low/Medium/High risk with an Isolation Forest model, maps findings to
+> MITRE ATT&CK, and writes a defensive Markdown report.
 
 Short answer for "Where is parallelism?":
 
@@ -142,8 +224,9 @@ Short answer for "Where is parallelism?":
 Short answer for "Where is ML?":
 
 > `risk_features.py` converts recon output into numeric features, and
-> `risk_model.py` compares the vector with small labelled training samples using
-> KNN. The model is simple but explainable for a classroom project.
+> `risk_model.py` uses a small Isolation Forest baseline to detect unusual
+> exposure. The anomaly score is calibrated into a 0-10 Low/Medium/High risk
+> result for the classroom report.
 
 Short answer for "Where is the AI agent?":
 

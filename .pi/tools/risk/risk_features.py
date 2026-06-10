@@ -1,7 +1,7 @@
 """STAGE 2A - Feature Extraction for ML Risk Model.
 
 Input: ket qua recon gom open ports, DNS records, banners.
-Output: feature_map de dua vao KNN model.
+Output: feature_map de dua vao Isolation Forest model.
 """
 
 import re

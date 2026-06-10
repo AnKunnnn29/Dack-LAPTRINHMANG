@@ -17,17 +17,20 @@ except ImportError:
 api_key = os.getenv("OPENAI_API_KEY")
 model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 base_url = os.getenv("OPENAI_BASE_URL", "").strip()
+effective_base_url = base_url or "https://api.openai.com/v1"
 
 masked_key = "NOT FOUND"
 if api_key and len(api_key) > 24:
     masked_key = f"{api_key[:20]}...{api_key[-4:]}"
+elif api_key:
+    masked_key = "<set>"
 
 print("\nConfiguration:")
 print(f"   API Key: {masked_key}")
 print(f"   Model: {model}")
-print(f"   Base URL: {base_url if base_url else 'Default OpenAI endpoint'}")
+print(f"   Base URL: {effective_base_url}")
 
-if not api_key or api_key == "your_api_key_here":
+if not api_key or api_key in {"your_api_key_here", "replace_with_your_new_api_key"}:
     print("\n[ERROR] API key not found or invalid.")
     print("        Please check your .env file.")
     raise SystemExit(1)
@@ -38,7 +41,7 @@ print("\nTesting API connection...")
 try:
     from openai import OpenAI
 
-    client = OpenAI(base_url=base_url) if base_url else OpenAI()
+    client = OpenAI(base_url=effective_base_url)
 
     response = client.chat.completions.create(
         model=model,

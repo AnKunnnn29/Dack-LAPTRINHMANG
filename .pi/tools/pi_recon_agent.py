@@ -49,15 +49,28 @@ from reporting.ai_reporter import generate_report  # noqa: E402
 from risk.risk_scorer import save_risk_profile, score_risk  # noqa: E402
 
 
-RECON_AGENT_SYSTEM = """You are the Topic 02 Network Recon + Risk Profiler agent.
+INVALID_API_KEY_VALUES = {"", "replace_with_your_new_api_key", "your_api_key_here"}
+DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
+
+
+RECON_AGENT_SYSTEM = """You are the Topic 02 Network Recon + Risk Profiler Orchestrator Agent.
 
 Goal: run an authorized, read-only reconnaissance workflow and produce a defensive report.
 
+Agent roles:
+- Permission Gate Agent validates target scope before network activity.
+- Port Scan Agent checks candidate TCP ports.
+- DNS Enumeration Agent collects allowed DNS records.
+- Banner Grab Agent collects lightweight service banners.
+- Risk Score Agent runs Isolation Forest scoring and MITRE mapping.
+- Report Agent writes the final Markdown report.
+
 Required protocol:
-1. In the first tool turn, call these independent tools: scan_ports, enumerate_dns, grab_banners.
-2. After all three recon results are available, call score_risk_from_triage.
-3. After risk scoring is complete, call generate_markdown_report.
-4. Then stop and summarize the output paths.
+1. Treat the Python safety gate as the Permission Gate Agent.
+2. In the first tool turn, call these independent recon tools: scan_ports, enumerate_dns, grab_banners.
+3. After all three recon results are available, call score_risk_from_triage.
+4. After risk scoring is complete, call generate_markdown_report.
+5. Then stop and summarize the output paths.
 
 Safety rules:
 - Work only on authorized targets.
@@ -134,7 +147,7 @@ TOOLS: list[dict[str, Any]] = [
         "function": {
             "name": "score_risk_from_triage",
             "description": (
-                "Read the three recon JSON files, extract ML features, run the simple KNN risk model, "
+                "Read the three recon JSON files, extract ML features, run the simple Isolation Forest risk model, "
                 "write .pi/triage/risk_profile.json, and return score, level, findings, and MITRE mapping. "
                 "Call only after scan_ports, enumerate_dns, and grab_banners have finished."
             ),
@@ -273,8 +286,20 @@ def _compact_for_llm(result: Any) -> Any:
         compact["scanned_ports"] = compact["scanned_ports"][:40] + ["..."]
     if "attempted_ports" in compact and len(compact["attempted_ports"]) > 40:
         compact["attempted_ports"] = compact["attempted_ports"][:40] + ["..."]
-    if "nearest_samples" in compact:
-        compact["nearest_samples"] = compact["nearest_samples"][:3]
+    ml_model = compact.get("ml_model")
+    if isinstance(ml_model, dict):
+        compact["ml_model"] = {
+            key: ml_model[key]
+            for key in (
+                "name",
+                "type",
+                "anomaly_score",
+                "calibrated_anomaly",
+                "exposure_severity",
+                "feature_vector",
+            )
+            if key in ml_model
+        }
     return compact
 
 
@@ -284,6 +309,23 @@ def _assistant_message(message: Any) -> dict:
         "role": "assistant",
         "content": message.content,
         "tool_calls": [item.model_dump() for item in (message.tool_calls or [])],
+    }
+
+
+def _execute_named_tool(name: str, args: dict, tool_map: dict[str, Callable[..., dict]]) -> dict:
+    """Execute one tool by name and keep errors as data for the agent."""
+    func = tool_map.get(name)
+    if not func:
+        payload = {"error": f"unknown tool: {name}"}
+    else:
+        try:
+            payload = func(**args)
+        except Exception as exc:
+            payload = {"error": str(exc)}
+
+    return {
+        "name": name,
+        "result": _compact_for_llm(payload),
     }
 
 
@@ -298,14 +340,7 @@ def _execute_tool_batch(tool_calls: list[Any], tool_map: dict[str, Callable[...,
     def run_one(tool_call: Any) -> dict:
         name = tool_call.function.name
         args = json.loads(tool_call.function.arguments or "{}")
-        func = tool_map.get(name)
-        if not func:
-            payload = {"error": f"unknown tool: {name}"}
-        else:
-            try:
-                payload = func(**args)
-            except Exception as exc:  # Tools should not crash the agent loop.
-                payload = {"error": str(exc)}
+        payload = _execute_named_tool(name, args, tool_map)["result"]
 
         return {
             "role": "tool",
@@ -321,6 +356,70 @@ def _execute_tool_batch(tool_calls: list[Any], tool_map: dict[str, Callable[...,
     return results
 
 
+def _extract_text_tool_plan(content: str | None) -> list[tuple[str, dict]]:
+    """Parse local-model JSON tool plans when true tool-calling is unavailable."""
+    if not content:
+        return []
+
+    plan: list[tuple[str, dict]] = []
+    decoder = json.JSONDecoder()
+
+    for index, char in enumerate(content):
+        if char != "{":
+            continue
+
+        try:
+            item, _ = decoder.raw_decode(content[index:])
+        except json.JSONDecodeError:
+            continue
+
+        if not isinstance(item, dict) or not isinstance(item.get("name"), str):
+            continue
+
+        args = item.get("parameters", item.get("arguments", {}))
+        if isinstance(args, str):
+            try:
+                args = json.loads(args)
+            except json.JSONDecodeError:
+                args = {}
+        if not isinstance(args, dict):
+            args = {}
+
+        plan.append((item["name"], args))
+
+    return plan
+
+
+def _execute_text_tool_plan(
+    plan: list[tuple[str, dict]],
+    tool_map: dict[str, Callable[..., dict]],
+) -> list[dict]:
+    """Execute a parsed textual tool plan.
+
+    Some local OpenAI-compatible models describe function calls as JSON text
+    instead of returning structured `tool_calls`. This fallback keeps the demo
+    usable while still routing all actions through the same safety wrapper.
+    """
+    recon_names = {"scan_ports", "enumerate_dns", "grab_banners"}
+    recon_calls = [(name, args) for name, args in plan if name in recon_names]
+    later_calls = [(name, args) for name, args in plan if name not in recon_names]
+    results: list[dict] = []
+
+    if recon_calls:
+        with ThreadPoolExecutor(max_workers=len(recon_calls)) as executor:
+            futures = [
+                executor.submit(_execute_named_tool, name, args, tool_map)
+                for name, args in recon_calls
+            ]
+            for future in as_completed(futures):
+                results.append(future.result())
+
+    for name, args in later_calls:
+        results.append(_execute_named_tool(name, args, tool_map))
+
+    return results
+
+
 def run_agent(
     system_prompt: str,
     user_request: str,
@@ -332,13 +431,14 @@ def run_agent(
     """Generic Week 5 agent loop: observe, think, act, repeat."""
     from openai import OpenAI
 
-    base_url = os.getenv("OPENAI_BASE_URL", "").strip()
-    client = OpenAI(base_url=base_url) if base_url else OpenAI()
+    base_url = os.getenv("OPENAI_BASE_URL", "").strip() or DEFAULT_OPENAI_BASE_URL
+    client = OpenAI(base_url=base_url)
 
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_request},
     ]
+    executed_tool_calls = 0
 
     for iteration in range(1, max_iterations + 1):
         response = client.chat.completions.create(
@@ -356,10 +456,24 @@ def run_agent(
 
         if finish_reason == "tool_calls":
             tool_messages = _execute_tool_batch(message.tool_calls or [], tool_map)
+            executed_tool_calls += len(tool_messages)
             messages.extend(tool_messages)
             continue
 
         if finish_reason == "stop":
+            if executed_tool_calls == 0:
+                text_plan = _extract_text_tool_plan(message.content)
+                if text_plan:
+                    tool_results = _execute_text_tool_plan(text_plan, tool_map)
+                    return {
+                        "status": "completed_text_tool_plan",
+                        "iterations": iteration,
+                        "final_response": message.content,
+                        "parsed_tool_calls": len(text_plan),
+                        "tool_results": tool_results,
+                        "messages_used": len(messages),
+                    }
+
             return {
                 "status": "completed",
                 "iterations": iteration,
@@ -406,6 +520,8 @@ def run_topic02_agent(target: str, ports: list[int], authorized: bool, timeout: 
 
 
 def main() -> None:
+    load_env()
+
     parser = argparse.ArgumentParser(description="Agentic Topic 02 Recon + Risk Profiler")
     parser.add_argument("--target", default="localhost")
     parser.add_argument("--ports", default="")
@@ -414,12 +530,12 @@ def main() -> None:
     parser.add_argument("--model", default=os.getenv("OPENAI_MODEL", "gpt-4o"))
     args = parser.parse_args()
 
-    load_env()
     target, url_ports = parse_target(args.target)
     ports = choose_ports(args.ports, url_ports, DEFAULT_PORTS)
 
-    if not os.getenv("OPENAI_API_KEY"):
-        print("[INFO] OPENAI_API_KEY is missing, so agentic mode cannot call the model.")
+    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    if api_key in INVALID_API_KEY_VALUES:
+        print("[INFO] OPENAI_API_KEY is missing or still uses the placeholder value.")
         print("       Run the offline pipeline instead:")
         print(f"       python .pi/tools/main_pipeline.py --target {target} --ports \"{','.join(map(str, ports))}\"")
         return

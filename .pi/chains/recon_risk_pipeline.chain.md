@@ -7,6 +7,32 @@ Topic 02: Network Recon + Risk Profiler.
 Run safe reconnaissance on an authorized target, score the risk with a simple ML
 model, map findings to MITRE ATT&CK, and generate a defensive Markdown report.
 
+## Agent Roles
+
+- `orchestrator_agent`: validates order, coordinates stages, and returns output paths.
+- `permission_gate_agent`: blocks unauthorized targets before network activity.
+- `port_scan_agent`: checks candidate TCP ports.
+- `dns_enum_agent`: collects allowed DNS records.
+- `banner_grab_agent`: collects lightweight service banners.
+- `risk_score_agent`: extracts ML features and runs Isolation Forest scoring.
+- `report_agent`: writes the final defensive Markdown report.
+- `log_monitor_agent`: reads authorized logs once or in live polling mode.
+- `threat_detection_agent`: detects malware-like, brute-force, exploit, and traffic anomaly signals.
+- `alert_agent`: writes local alerts and optionally sends Discord/email notifications.
+
+## Stage 0: Permission Gate
+
+Before any network tool runs:
+
+```text
+permission_gate_agent(target, authorized)
+```
+
+Decision:
+
+- allowed -> continue to Stage 1
+- blocked -> stop pipeline and write reason to log
+
 ## Stage 1: Parallel Recon Collection
 
 These three agents have no data dependency, so they run at the same time:
@@ -52,8 +78,9 @@ Tools:
 
 Process:
 
-1. Read the three Stage 1 JSON files.
-2. Extract simple explainable features:
+1. Confirm the three Stage 1 JSON files exist.
+2. Read the three Stage 1 JSON files.
+3. Extract simple explainable features:
    - open port count
    - sensitive port count
    - high-risk port count
@@ -61,8 +88,8 @@ Process:
    - HTTP port count
    - version banner count
    - DNS record count
-3. Predict Low/Medium/High risk with a small supervised KNN model.
-4. Build findings, MITRE mapping, and recommendations.
+4. Predict Low/Medium/High risk with a small Isolation Forest anomaly model.
+5. Build findings, MITRE mapping, and recommendations.
 
 Output:
 
@@ -91,6 +118,33 @@ Process:
 Output:
 
 - `.pi/results/ket_qua.md`
+
+## Stage 4: Defensive Monitoring And Alerting
+
+Agents:
+
+- `log_monitor_agent`
+- `threat_detection_agent`
+- `alert_agent`
+
+Tools:
+
+- `.pi/tools/monitoring/log_monitor.py`
+- `.pi/tools/monitoring/detectors.py`
+- `.pi/tools/monitoring/alerter.py`
+
+Process:
+
+1. Read authorized log events from `.pi/data/sample_security_events.log` or another log file.
+2. Detect malware-like indicators, brute force, web exploit probes, and traffic anomalies.
+3. Map alerts to defensive MITRE context.
+4. Write alert JSON and Markdown.
+5. Send Discord/email only when environment variables are configured.
+
+Outputs:
+
+- `.pi/alerts/alerts.json`
+- `.pi/alerts/alert_report.md`
 
 ## Week 5 Agentic Extension
 
@@ -123,3 +177,20 @@ The agent loop:
 - Allowlist gate in `.pi/tools/common/tool_utils.py`.
 - `--authorized` is required for targets outside the demo allowlist.
 - The agentic runner also has simple per-tool rate limiting.
+
+## Handoff Summary
+
+```text
+orchestrator_agent
+  -> permission_gate_agent
+  -> /parallel
+       port_scan_agent
+       dns_enum_agent
+       banner_grab_agent
+     /join
+  -> risk_score_agent
+  -> report_agent
+  -> log_monitor_agent
+  -> threat_detection_agent
+  -> alert_agent
+```

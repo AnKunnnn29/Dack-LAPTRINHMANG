@@ -22,6 +22,12 @@ Thu thap DNS record co ban cua domain de bo sung ngu canh recon.
 Truy van cac record A, MX, NS, TXT bang `dnspython`.
 Neu target la localhost hoac IP address, bo qua DNS enum vi khong phu hop.
 
+## Decision Rules
+
+- Neu target la localhost hoac IP, tra ve `skipped=true`.
+- Chi truy van A, MX, NS, TXT; khong brute force subdomain.
+- Loi DNS duoc ghi vao `errors` thay vi lam hong toan pipeline.
+
 ## Output
 
 Tra ve JSON gom:
@@ -31,6 +37,17 @@ Tra ve JSON gom:
 - message
 - records
 - errors neu co
+
+## Completion Criteria
+
+- Moi record type cho phep da duoc query hoac ghi loi ro rang.
+- `.pi/triage/dns_enum_result.json` duoc ghi thanh cong.
+- Output phan biet duoc truong hop skipped, success, va error.
+
+## Handoff
+
+Chuyen `records`, `message`, va `errors` cho `risk_score_agent` de tinh
+`dns_record_count` va tao MITRE mapping neu co DNS evidence.
 
 ## Safety
 

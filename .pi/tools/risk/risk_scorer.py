@@ -2,7 +2,7 @@
 
 File nay noi 3 phan:
 1. Lay feature tu recon output.
-2. Goi KNN model de cham diem.
+2. Goi Isolation Forest model de cham diem.
 3. Tao findings, MITRE mapping va recommendations.
 """
 
@@ -16,7 +16,7 @@ if __package__ in {None, ""}:
 
 from risk.risk_features import extract_features
 from risk.risk_findings import build_findings, build_mitre_mapping, build_recommendations
-from risk.risk_model import predict_with_knn
+from risk.risk_model import predict_with_isolation_forest
 
 
 def score_risk(port_result: dict, dns_result: dict, banner_result: dict) -> dict:
@@ -27,7 +27,7 @@ def score_risk(port_result: dict, dns_result: dict, banner_result: dict) -> dict
 
     # MARK: ML input/output - feature_map vao model, prediction ra score/label.
     feature_map, version_leaks = extract_features(open_ports, banners, dns_result)
-    prediction = predict_with_knn(feature_map)
+    prediction = predict_with_isolation_forest(feature_map)
 
     # MARK: Final risk profile - day la file trung tam cho bao cao.
     return {
@@ -37,11 +37,17 @@ def score_risk(port_result: dict, dns_result: dict, banner_result: dict) -> dict
         "ml_model": {
             "name": prediction["model_name"],
             "type": prediction["model_type"],
-            "k": prediction["k"],
+            "n_trees": prediction["n_trees"],
+            "random_seed": prediction["random_seed"],
+            "baseline_size": prediction["baseline_size"],
+            "max_depth": prediction["max_depth"],
             "features": feature_map,
             "feature_names": prediction["feature_names"],
             "feature_vector": prediction["feature_vector"],
-            "nearest_samples": prediction["nearest_samples"],
+            "anomaly_score": prediction["anomaly_score"],
+            "calibrated_anomaly": prediction["calibrated_anomaly"],
+            "average_path_length": prediction["average_path_length"],
+            "exposure_severity": prediction["exposure_severity"],
         },
         "mitre_mapping": build_mitre_mapping(open_ports, version_leaks, dns_result),
         "findings": build_findings(open_ports, version_leaks, dns_result),
@@ -53,7 +59,7 @@ def score_risk(port_result: dict, dns_result: dict, banner_result: dict) -> dict
             "banners": banners,
         },
         "notes": [
-            "Risk is predicted by a small supervised KNN model for classroom demonstration.",
+            "Risk is predicted by a small Isolation Forest anomaly model for classroom demonstration.",
             "MITRE mapping is defensive context, not exploitation guidance.",
             "No exploit, brute force, bypass, or real attack step is performed.",
         ],
