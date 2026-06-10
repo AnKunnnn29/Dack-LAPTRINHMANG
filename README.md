@@ -155,7 +155,7 @@ Why this file exists:
 
 ```bash
 python -m unittest discover -s tests
-python -m compileall test_api.py .pi/tools
+python -m compileall .pi/tools
 ```
 
 ## Run Defensive Monitoring Demo
