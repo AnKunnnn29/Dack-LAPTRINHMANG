@@ -27,7 +27,7 @@ Stage 3 - Report Generation
 
 Stage 4 - Defensive Monitoring
   log_monitor_agent    -> read authorized logs
-  threat_detection_agent -> detect malware/brute force/exploit/traffic anomaly
+  threat_detection_agent -> rules + Isolation Forest log anomaly detection
   alert_agent          -> .pi/alerts/alerts.json and alert_report.md
 ```
 
@@ -65,12 +65,13 @@ The code is intentionally simple for oral defense:
 - Recon tools use normal Python sockets and short timeouts.
 - Stage 1 runs three independent tools at the same time.
 - Risk scoring uses a small Isolation Forest anomaly model with explainable numeric features.
+- Monitoring trains a separate Isolation Forest directly on each selected Loghub file.
 - Report generation uses GPT when an API key exists and an offline template when it does not.
 - Safety gate blocks non-allowlisted targets unless `--authorized` is explicitly provided.
 
 ## Agent Design
 
-The `.pi/agents` folder defines seven agents:
+The `.pi/agents` folder defines ten agents:
 
 - `orchestrator_agent`: coordinates the full pipeline and handoffs.
 - `permission_gate_agent`: blocks unauthorized targets before network activity.
@@ -86,7 +87,7 @@ The `.pi/agents` folder defines seven agents:
 ## Install
 
 ```bash
-cd security-agents
+cd Network-Recon-Risk-Profiler
 pip install -r requirements.txt
 ```
 
@@ -111,7 +112,7 @@ python -m http.server 8000 --bind 127.0.0.1
 Terminal 2:
 
 ```bash
-python .pi/tools/main_pipeline.py --target localhost --ports "8000,8080,3306,5432,6379"
+python .pi/tools/main_pipeline.py --target localhost --ports "8000,8080,3306,5432,6379" --offline
 ```
 
 Outputs:
@@ -179,14 +180,36 @@ Public Loghub OpenSSH demo:
 python .pi/tools/threat_monitor.py --log-file .pi/data/loghub_openssh_2k.log --output-dir .pi/alerts/loghub_openssh
 ```
 
+Standalone ML training and anomaly ranking:
+
+```bash
+python .pi/tools/log_anomaly.py --log-file .pi/data/loghub_openssh_2k.log --top 20 --output .pi/alerts/loghub_openssh/ml_anomalies.json
+python .pi/tools/log_anomaly.py --log-file .pi/data/loghub_apache_2k.log --top 20 --output .pi/alerts/loghub_apache/ml_anomalies.json
+```
+
 The public OpenSSH log is from LogPAI/loghub, a public system log dataset for
 AI-driven log analytics. The OpenSSH README says the log was collected from an
 OpenSSH server in their lab over 28+ days.
+
+The monitoring ML flow:
+
+1. Parse all 2,000 raw log lines into events.
+2. Extract 12 explainable features per line, including message length, token
+   count, IP count, error/security keyword counts, and template rarity.
+3. Standardize the feature vectors.
+4. Fit an unsupervised `IsolationForest` on the selected 2,000-line file.
+5. Rank anomaly candidates and combine them with rule-based alerts.
+6. Combine rule severity and the strongest ML anomaly into a separate
+   `monitoring_risk_profile` score from 0 to 10.
+
+This is separate from the network exposure risk model because log-line features
+and scan-result features describe different security problems.
 
 Outputs:
 
 - `.pi/alerts/alerts.json`
 - `.pi/alerts/alert_report.md`
+- Optional standalone `.pi/alerts/.../ml_anomalies.json`
 
 Live polling demo:
 
@@ -194,8 +217,52 @@ Live polling demo:
 python .pi/tools/threat_monitor.py --live --duration 20 --poll-interval 2
 ```
 
+Use `--no-ml` to run only the original rules, or change the expected anomaly
+fraction with `--ml-contamination 0.03`.
+
 Optional Discord/email alerting is controlled by `.env` variables shown in
 `.env.example`.
+
+Live mode stores delivered alert IDs in `monitor_state.json`, so repeated polls
+do not resend the same alert.
+
+## Run The API And Dashboard
+
+```bash
+uvicorn api_server:app --app-dir .pi/tools --host 127.0.0.1 --port 8000
+```
+
+Open:
+
+- Dashboard: `http://127.0.0.1:8000`
+- OpenAPI documentation: `http://127.0.0.1:8000/docs`
+- Health check: `http://127.0.0.1:8000/health`
+
+Optional API protection:
+
+```env
+API_KEY=replace_with_a_long_random_value
+ALLOW_NON_ALLOWLISTED_TARGETS=false
+```
+
+Limited UDP reachability check for an authorized lab target:
+
+```bash
+python .pi/tools/udp_scanner.py --target localhost --ports "53,123,161"
+```
+
+UDP timeouts are reported as `open_or_filtered`; they are not treated as proof
+that a UDP service is open.
+
+Compare the Isolation Forest score with a supervised Random Forest on the
+included classroom scenarios:
+
+```bash
+python .pi/tools/evaluate_models.py
+```
+
+The output includes precision, recall, false-positive rate, and a warning that
+the small classroom dataset is not sufficient for production decisions.
 
 Public log files included:
 
@@ -226,7 +293,9 @@ Short answer for "Where is ML?":
 > `risk_features.py` converts recon output into numeric features, and
 > `risk_model.py` uses a small Isolation Forest baseline to detect unusual
 > exposure. The anomaly score is calibrated into a 0-10 Low/Medium/High risk
-> result for the classroom report.
+> result for the classroom report. Separately, `monitoring/anomaly_detector.py`
+> trains Isolation Forest directly on all 2,000 Loghub lines to rank unusual
+> security log events without requiring labels.
 
 Short answer for "Where is the AI agent?":
 
