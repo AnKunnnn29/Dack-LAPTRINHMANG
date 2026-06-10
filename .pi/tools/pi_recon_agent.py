@@ -357,7 +357,7 @@ def _execute_tool_batch(tool_calls: list[Any], tool_map: dict[str, Callable[...,
 
 
 def _extract_text_tool_plan(content: str | None) -> list[tuple[str, dict]]:
-    """Parse local-model JSON tool plans when true tool-calling is unavailable."""
+    """Parse JSON tool plans when structured tool-calling is unavailable."""
     if not content:
         return []
 
@@ -396,9 +396,9 @@ def _execute_text_tool_plan(
 ) -> list[dict]:
     """Execute a parsed textual tool plan.
 
-    Some local OpenAI-compatible models describe function calls as JSON text
-    instead of returning structured `tool_calls`. This fallback keeps the demo
-    usable while still routing all actions through the same safety wrapper.
+    Some API responses may describe function calls as JSON text instead of
+    returning structured `tool_calls`. This fallback still routes all actions
+    through the same safety wrapper.
     """
     recon_names = {"scan_ports", "enumerate_dns", "grab_banners"}
     recon_calls = [(name, args) for name, args in plan if name in recon_names]

@@ -126,24 +126,17 @@ Outputs:
 
 ## Run The Week 5 Agentic Mode
 
-This mode can run with OpenAI API or free local Ollama.
+This optional mode uses the OpenAI API.
 
-Free local Ollama setup:
+Create `.env`:
 
 ```env
-OPENAI_API_KEY=ollama
-OPENAI_MODEL=llama3.1:8b
-OPENAI_BASE_URL=http://127.0.0.1:11434/v1
+OPENAI_API_KEY=replace_with_your_openai_api_key
+OPENAI_MODEL=gpt-4o
+OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 
-Then start or verify Ollama:
-
-```bash
-ollama pull llama3.1
-ollama serve
-```
-
-In another terminal, run:
+Then run:
 
 ```bash
 python .pi/tools/pi_recon_agent.py --target localhost --ports "8000,8080,3306,5432,6379"
@@ -155,7 +148,7 @@ Why this file exists:
 - It implements the Observe-Think-Act agent loop.
 - It preserves assistant `tool_calls` and appends `tool` results.
 - It executes a batch of requested tool calls before the next model call.
-- It can parse local-model JSON tool plans when Ollama returns tool calls as text.
+- It can parse JSON tool plans if an API response returns tool calls as text.
 - It reuses the same simple Topic 02 tools, so the core project remains easy to explain.
 
 ## Run Tests
