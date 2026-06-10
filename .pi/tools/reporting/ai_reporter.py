@@ -23,6 +23,7 @@ def generate_report(
     output_path: str | Path,
     prompt_path: str | Path | None = None,
     model: str | None = None,
+    offline: bool = False,
 ) -> str:
     """Doc risk_profile.json va ghi report Markdown ra ket_qua.md."""
     risk_path = Path(risk_profile_path)
@@ -36,8 +37,9 @@ def generate_report(
     api_key = os.getenv("OPENAI_API_KEY")
 
     # MARK: Report generation mode - API truoc, fallback offline sau.
-    if not api_key or api_key == "your_api_key_here":
-        report = build_offline_report(profile)
+    if offline or not api_key or api_key == "your_api_key_here":
+        reason = "Offline mode requested" if offline else "No API key found"
+        report = build_offline_report(profile, reason=reason)
     else:
         try:
             report = generate_ai_report(profile, prompt, selected_model)
@@ -53,9 +55,10 @@ def main() -> None:
     parser.add_argument("--risk-profile", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--prompt", default="")
+    parser.add_argument("--offline", action="store_true")
     args = parser.parse_args()
 
-    generate_report(args.risk_profile, args.output, args.prompt or None)
+    generate_report(args.risk_profile, args.output, args.prompt or None, offline=args.offline)
     print(f"Report written to {args.output}")
 
 

@@ -7,6 +7,7 @@ File nay noi 3 phan:
 """
 
 import argparse
+import ipaddress
 import json
 import sys
 from pathlib import Path
@@ -16,7 +17,22 @@ if __package__ in {None, ""}:
 
 from risk.risk_features import extract_features
 from risk.risk_findings import build_findings, build_mitre_mapping, build_recommendations
-from risk.risk_model import predict_with_isolation_forest
+from risk.risk_model import label_from_score, predict_with_isolation_forest
+
+
+def classify_target_exposure(target: str | None) -> str:
+    """Classify obvious local/private targets without external lookup."""
+    if not target or target.lower() == "localhost":
+        return "local"
+    try:
+        address = ipaddress.ip_address(target)
+        if address.is_loopback:
+            return "local"
+        if address.is_private:
+            return "private"
+        return "public"
+    except ValueError:
+        return "public"
 
 
 def score_risk(port_result: dict, dns_result: dict, banner_result: dict) -> dict:
@@ -28,12 +44,22 @@ def score_risk(port_result: dict, dns_result: dict, banner_result: dict) -> dict
     # MARK: ML input/output - feature_map vao model, prediction ra score/label.
     feature_map, version_leaks = extract_features(open_ports, banners, dns_result)
     prediction = predict_with_isolation_forest(feature_map)
+    target_exposure = classify_target_exposure(target)
+    exposure_adjustment = 1 if target_exposure == "public" and open_ports else 0
+    final_score = min(10, prediction["predicted_score"] + exposure_adjustment)
 
     # MARK: Final risk profile - day la file trung tam cho bao cao.
     return {
         "target": target,
-        "score": prediction["predicted_score"],
-        "risk_level": prediction["predicted_label"],
+        "score": final_score,
+        "risk_level": label_from_score(final_score),
+        "target_exposure": target_exposure,
+        "score_adjustments": [
+            {
+                "reason": "Public target with exposed services",
+                "points": exposure_adjustment,
+            }
+        ] if exposure_adjustment else [],
         "ml_model": {
             "name": prediction["model_name"],
             "type": prediction["model_type"],
@@ -48,6 +74,7 @@ def score_risk(port_result: dict, dns_result: dict, banner_result: dict) -> dict
             "calibrated_anomaly": prediction["calibrated_anomaly"],
             "average_path_length": prediction["average_path_length"],
             "exposure_severity": prediction["exposure_severity"],
+            "risk_drivers": prediction["risk_drivers"],
         },
         "mitre_mapping": build_mitre_mapping(open_ports, version_leaks, dns_result),
         "findings": build_findings(open_ports, version_leaks, dns_result),
@@ -57,6 +84,8 @@ def score_risk(port_result: dict, dns_result: dict, banner_result: dict) -> dict
             "dns_records": dns_result.get("records", {}),
             "dns_message": dns_result.get("message", ""),
             "banners": banners,
+            "services": banner_result.get("services", {}),
+            "tls": banner_result.get("tls", {}),
         },
         "notes": [
             "Risk is predicted by a small Isolation Forest anomaly model for classroom demonstration.",

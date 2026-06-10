@@ -166,6 +166,30 @@ def exposure_severity(feature_map: dict) -> float:
     return min(1.0, weighted_total / 10.0)
 
 
+def explain_exposure(feature_map: dict) -> list[dict]:
+    """Expose each weighted contribution used by the classroom risk model."""
+    weights = {
+        "open_port_count": 0.8,
+        "sensitive_port_count": 1.2,
+        "high_risk_port_count": 2.0,
+        "database_cache_port_count": 1.4,
+        "http_port_count": 0.7,
+        "version_banner_count": 1.1,
+        "dns_record_count": 0.25,
+    }
+    drivers = [
+        {
+            "feature": name,
+            "value": feature_map[name],
+            "weight": weight,
+            "contribution": round(feature_map[name] * weight, 3),
+        }
+        for name, weight in weights.items()
+        if feature_map[name]
+    ]
+    return sorted(drivers, key=lambda item: item["contribution"], reverse=True)
+
+
 def calibrate_anomaly_score(anomaly_score: float) -> float:
     """Chuan hoa anomaly score tho de baseline gan 0 va anomaly ro rang gan 1."""
     return max(0.0, min(1.0, (anomaly_score - 0.45) / 0.35))
@@ -207,4 +231,5 @@ def predict_with_isolation_forest(feature_map: dict) -> dict:
         "exposure_severity": round(exposure, 4),
         "predicted_score": predicted_score,
         "predicted_label": label_from_score(predicted_score),
+        "risk_drivers": explain_exposure(feature_map),
     }

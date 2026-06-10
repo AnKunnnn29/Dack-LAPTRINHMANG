@@ -4,3 +4,4 @@ __pycache__/
 .pi/logs/*
 .pi/results/*
 .pi/triage/*
+.pi/alerts/monitor_state.json

@@ -9,11 +9,15 @@ Nhom ham trong file:
 
 import json
 import logging
+import socket
 from pathlib import Path
 from urllib.parse import urlparse
 
 
 DEFAULT_ALLOWED_TARGETS = {"localhost", "127.0.0.1", "::1", "scanme.nmap.org"}
+MIN_PORT = 1
+MAX_PORT = 65535
+MAX_PORT_COUNT = 4096
 
 
 def project_root() -> Path:
@@ -75,23 +79,76 @@ def parse_ports(raw_ports: str) -> list[int]:
     if not raw_ports:
         return []
 
-    ports = []
+    ports: set[int] = set()
     for part in raw_ports.split(","):
         item = part.strip()
         if not item:
             continue
 
-        if "-" in item:
-            start_text, end_text = item.split("-", 1)
-            start_port = int(start_text.strip())
-            end_port = int(end_text.strip())
-            if start_port > end_port:
-                start_port, end_port = end_port, start_port
-            ports.extend(range(start_port, end_port + 1))
-        else:
-            ports.append(int(item))
+        try:
+            if "-" in item:
+                start_text, end_text = item.split("-", 1)
+                if not start_text.strip() or not end_text.strip():
+                    raise ValueError
+                start_port = int(start_text.strip())
+                end_port = int(end_text.strip())
+                if start_port > end_port:
+                    start_port, end_port = end_port, start_port
+                validate_port(start_port)
+                validate_port(end_port)
+                if len(ports) + (end_port - start_port + 1) > MAX_PORT_COUNT:
+                    raise ValueError(f"Port list cannot contain more than {MAX_PORT_COUNT} ports.")
+                ports.update(range(start_port, end_port + 1))
+            else:
+                ports.add(validate_port(int(item)))
+        except ValueError as exc:
+            if str(exc):
+                raise
+            raise ValueError(f"Invalid port expression: {item!r}.") from exc
 
-    return sorted(set(ports))
+        if len(ports) > MAX_PORT_COUNT:
+            raise ValueError(f"Port list cannot contain more than {MAX_PORT_COUNT} ports.")
+
+    return sorted(ports)
+
+
+def validate_port(port: int) -> int:
+    """Validate one TCP/UDP port number."""
+    if not MIN_PORT <= port <= MAX_PORT:
+        raise ValueError(f"Port must be between {MIN_PORT} and {MAX_PORT}: {port}.")
+    return port
+
+
+def validate_timeout(timeout: float) -> float:
+    """Keep network timeouts positive and bounded."""
+    if not 0.01 <= timeout <= 30:
+        raise ValueError("Timeout must be between 0.01 and 30 seconds.")
+    return timeout
+
+
+def validate_target(target: str) -> str:
+    """Reject empty or malformed targets before any network activity."""
+    normalized = target.strip().lower()
+    if not normalized or any(char.isspace() for char in normalized):
+        raise ValueError("Target must be a non-empty hostname or IP address.")
+    if "/" in normalized or "\\" in normalized:
+        raise ValueError("Target must not contain a path.")
+    if len(normalized) > 253:
+        raise ValueError("Target is too long.")
+    return normalized
+
+
+def resolve_target(target: str) -> list[str]:
+    """Resolve a target so callers can fail clearly on invalid hostnames."""
+    normalized = validate_target(target)
+    try:
+        addresses = {
+            item[4][0]
+            for item in socket.getaddrinfo(normalized, None, type=socket.SOCK_STREAM)
+        }
+    except socket.gaierror as exc:
+        raise ValueError(f"Target could not be resolved: {normalized}.") from exc
+    return sorted(addresses)
 
 
 def parse_target(raw_target: str) -> tuple[str, list[int]]:
@@ -100,16 +157,15 @@ def parse_target(raw_target: str) -> tuple[str, list[int]]:
         parsed = urlparse(raw_target)
         host = parsed.hostname or parsed.netloc.split(":")[0]
         port = parsed.port
-        return host, [port] if port else []
+        return validate_target(host), [validate_port(port)] if port else []
 
-    if ":" in raw_target and not raw_target.startswith("["):
-        parts = raw_target.split(":")
-        try:
-            return parts[0], [int(parts[1])]
-        except (ValueError, IndexError):
-            pass
+    if raw_target.count(":") == 1 and not raw_target.startswith("["):
+        host_text, port_text = raw_target.split(":", 1)
+        if not port_text:
+            raise ValueError("Target port is missing.")
+        return validate_target(host_text), [validate_port(int(port_text))]
 
-    return raw_target, []
+    return validate_target(raw_target), []
 
 
 def choose_ports(raw_ports: str, url_ports: list[int], default_ports: list[int]) -> list[int]:

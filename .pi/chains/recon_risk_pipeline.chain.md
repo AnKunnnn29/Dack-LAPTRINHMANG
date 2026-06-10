@@ -136,10 +136,11 @@ Tools:
 Process:
 
 1. Read authorized log events from `.pi/data/sample_security_events.log` or another log file.
-2. Detect malware-like indicators, brute force, web exploit probes, and traffic anomalies.
-3. Map alerts to defensive MITRE context.
-4. Write alert JSON and Markdown.
-5. Send Discord/email only when environment variables are configured.
+2. Extract per-line features and train Isolation Forest on the selected log.
+3. Detect malware-like indicators, brute force, web exploit probes, traffic anomalies, and ML anomaly candidates.
+4. Map alerts to defensive MITRE context.
+5. Write alert JSON and Markdown.
+6. Send Discord/email only when environment variables are configured.
 
 Outputs:
 

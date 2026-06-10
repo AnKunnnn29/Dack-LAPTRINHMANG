@@ -8,7 +8,7 @@ Muc dich:
 import ipaddress
 
 
-DNS_RECORD_TYPES = ["A", "MX", "NS", "TXT"]
+DNS_RECORD_TYPES = ["A", "CNAME", "MX", "NS", "SOA", "TXT"]
 
 
 def is_ip_or_localhost(target: str) -> bool:
@@ -33,7 +33,7 @@ def _format_answer(record_type: str, answer) -> str:
 
 def enumerate_dns(domain: str, timeout: float = 2.0) -> dict:
     """Query DNS record va tra ve JSON-friendly dict."""
-    if is_ip_or_localhost(domain):
+    if domain.lower() in {"localhost", "127.0.0.1", "::1"}:
         return {
             "target": domain,
             "skipped": True,
@@ -57,6 +57,25 @@ def enumerate_dns(domain: str, timeout: float = 2.0) -> dict:
 
     records = {}
     errors = {}
+
+    try:
+        ipaddress.ip_address(domain)
+        try:
+            records["PTR"] = [str(item).rstrip(".") for item in resolver.resolve_address(domain)]
+            message = "Reverse DNS enumeration completed"
+        except Exception as exc:
+            records["PTR"] = []
+            errors["PTR"] = str(exc)
+            message = "Reverse DNS enumeration completed with no PTR result"
+        return {
+            "target": domain,
+            "skipped": False,
+            "message": message,
+            "records": records,
+            "errors": errors,
+        }
+    except ValueError:
+        pass
 
     # MARK: DNS record loop - moi loai record duoc thu rieng de khong lam fail ca tool.
     for record_type in DNS_RECORD_TYPES:

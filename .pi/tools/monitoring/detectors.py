@@ -15,8 +15,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from monitoring.anomaly_detector import analyze_log_anomalies
+
 
 BRUTE_FORCE_THRESHOLD = 5
+BRUTE_FORCE_WINDOW_SECONDS = 300
 TRAFFIC_EVENT_THRESHOLD = 20
 TRAFFIC_BYTES_THRESHOLD = 50_000_000
 
@@ -90,7 +93,9 @@ def load_events(path: str | Path) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
     log_path = Path(path)
     if not log_path.exists():
-        return events
+        raise FileNotFoundError(f"Log file does not exist: {log_path}")
+    if not log_path.is_file():
+        raise ValueError(f"Log path is not a file: {log_path}")
 
     for line_number, line in enumerate(log_path.read_text(encoding="utf-8").splitlines(), 1):
         text = line.strip()
@@ -139,6 +144,7 @@ def build_alert(
         "id": alert_id(category, evidence),
         "category": category,
         "severity": severity,
+        "status": "new",
         "title": title,
         "evidence": evidence,
         "recommendation": recommendation,
@@ -173,8 +179,38 @@ def detect_malware_indicators(events: list[dict[str, Any]]) -> list[dict[str, An
     return alerts
 
 
-def detect_brute_force(events: list[dict[str, Any]], threshold: int = BRUTE_FORCE_THRESHOLD) -> list[dict[str, Any]]:
-    """Detect repeated failed logins by source IP and username."""
+def _event_time(event: dict[str, Any]) -> datetime | None:
+    value = str(event.get("timestamp", "")).strip()
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _largest_time_window(items: list[dict[str, Any]], seconds: int) -> list[dict[str, Any]]:
+    timed = [(time, item) for item in items if (time := _event_time(item)) is not None]
+    if len(timed) != len(items):
+        return items
+    timed.sort(key=lambda pair: pair[0])
+    best: list[dict[str, Any]] = []
+    left = 0
+    for right, (right_time, _) in enumerate(timed):
+        while (right_time - timed[left][0]).total_seconds() > seconds:
+            left += 1
+        current = [item for _, item in timed[left:right + 1]]
+        if len(current) > len(best):
+            best = current
+    return best
+
+
+def detect_brute_force(
+    events: list[dict[str, Any]],
+    threshold: int = BRUTE_FORCE_THRESHOLD,
+    window_seconds: int = BRUTE_FORCE_WINDOW_SECONDS,
+) -> list[dict[str, Any]]:
+    """Detect repeated failed logins by source/user inside a time window."""
     groups: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for event in events:
         event_type = str(event.get("event_type", "")).lower()
@@ -192,17 +228,21 @@ def detect_brute_force(events: list[dict[str, Any]], threshold: int = BRUTE_FORC
 
     alerts = []
     for (src_ip, username), items in groups.items():
-        if len(items) >= threshold:
-            evidence = f"{len(items)} failed logins from {src_ip} for user {username}"
+        window_items = _largest_time_window(items, window_seconds)
+        if len(window_items) >= threshold:
+            evidence = (
+                f"{len(window_items)} failed logins from {src_ip} for user {username} "
+                f"within {window_seconds} seconds"
+            )
             alerts.append(
                 build_alert(
                     "brute_force",
-                    "High" if len(items) >= threshold * 2 else "Medium",
+                    "High" if len(window_items) >= threshold * 2 else "Medium",
                     "Possible brute-force login activity",
                     evidence,
                     "Review authentication logs, block or rate-limit the source, and enforce MFA/account lockout policy.",
                     ["T1110"],
-                    items,
+                    window_items,
                 )
             )
     return alerts
@@ -274,13 +314,67 @@ def detect_traffic_anomalies(
     return alerts
 
 
-def detect_threats(events: list[dict[str, Any]]) -> dict[str, Any]:
-    """Run all defensive detectors and return one summary."""
+def build_monitoring_risk_profile(alerts: list[dict[str, Any]], ml_analysis: dict[str, Any]) -> dict[str, Any]:
+    """Combine rule severity and ML anomaly confidence into a 0-10 log risk score."""
+    high_count = sum(alert.get("severity") == "High" for alert in alerts)
+    medium_count = sum(alert.get("severity") == "Medium" for alert in alerts)
+    top_anomalies = ml_analysis.get("top_anomalies", [])
+    top_ml_score = max(
+        (float(item.get("anomaly_score", 0)) for item in top_anomalies),
+        default=0.0,
+    )
+    rule_points = min(7.0, (high_count * 2.0) + (medium_count * 0.75))
+    ml_points = min(3.0, top_ml_score * 3.0)
+    score = min(10, round(rule_points + ml_points))
+    level = "Low" if score <= 3 else "Medium" if score <= 6 else "High"
+    return {
+        "score": score,
+        "risk_level": level,
+        "rule_points": round(rule_points, 3),
+        "ml_anomaly_points": round(ml_points, 3),
+        "high_alert_count": high_count,
+        "medium_alert_count": medium_count,
+        "top_ml_anomaly_score": round(top_ml_score, 6),
+        "explanation": "Rule alert severity and the strongest Isolation Forest anomaly are combined.",
+    }
+
+
+def detect_threats(
+    events: list[dict[str, Any]],
+    include_ml: bool = True,
+    ml_contamination: float = 0.03,
+) -> dict[str, Any]:
+    """Run rule-based and optional ML detectors and return one summary."""
     alerts = []
     alerts.extend(detect_malware_indicators(events))
     alerts.extend(detect_brute_force(events))
     alerts.extend(detect_exploit_attempts(events))
     alerts.extend(detect_traffic_anomalies(events))
+    ml_analysis = analyze_log_anomalies(events, contamination=ml_contamination) if include_ml else {
+        "status": "disabled",
+        "model_name": "IsolationForest",
+        "trained_on_event_count": 0,
+        "anomaly_count": 0,
+        "top_anomalies": [],
+    }
+    if ml_analysis.get("anomaly_count", 0):
+        top_anomalies = ml_analysis["top_anomalies"]
+        evidence = (
+            f"Isolation Forest trained on {ml_analysis['trained_on_event_count']} events and "
+            f"flagged {ml_analysis['anomaly_count']} anomaly candidates; "
+            f"top lines: {[item.get('line_number') for item in top_anomalies[:5]]}"
+        )
+        alerts.append(
+            build_alert(
+                "ml_log_anomaly",
+                "Medium",
+                "ML log anomaly candidates detected",
+                evidence,
+                "Review the ranked anomalous log lines and correlate them with rule-based alerts.",
+                ["T1087", "T1110", "T1190"],
+                top_anomalies,
+            )
+        )
 
     unique: dict[str, dict[str, Any]] = {}
     for alert in alerts:
@@ -290,14 +384,17 @@ def detect_threats(events: list[dict[str, Any]]) -> dict[str, Any]:
         unique.values(),
         key=lambda item: {"High": 0, "Medium": 1, "Low": 2}.get(item["severity"], 3),
     )
+    monitoring_risk_profile = build_monitoring_risk_profile(sorted_alerts, ml_analysis)
     generated_at = datetime.now(timezone.utc).isoformat()
     return {
         "generated_at": generated_at,
         "event_count": len(events),
         "alert_count": len(sorted_alerts),
         "alerts": sorted_alerts,
+        "ml_anomaly_analysis": ml_analysis,
+        "monitoring_risk_profile": monitoring_risk_profile,
         "notes": [
-            "Detections are rule-based for defensive classroom demonstration.",
+            "Detections combine defensive rules with optional unsupervised ML anomaly detection.",
             "Alerts require human validation before incident response action.",
             "No exploit, malware execution, brute force, or offensive action is performed.",
         ],

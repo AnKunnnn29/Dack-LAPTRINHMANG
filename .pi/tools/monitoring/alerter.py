@@ -29,6 +29,9 @@ def render_alert_markdown(summary: dict[str, Any]) -> str:
         f"- Generated at: `{summary.get('generated_at', '')}`",
         f"- Events analyzed: `{summary.get('event_count', 0)}`",
         f"- Alerts: `{summary.get('alert_count', 0)}`",
+        f"- ML anomalies: `{summary.get('ml_anomaly_analysis', {}).get('anomaly_count', 0)}`",
+        f"- Monitoring risk: `{summary.get('monitoring_risk_profile', {}).get('score', 0)}/10` "
+        f"({summary.get('monitoring_risk_profile', {}).get('risk_level', 'Low')})",
         "",
     ]
 
@@ -128,11 +131,25 @@ def send_email_alert(summary: dict[str, Any]) -> dict[str, Any]:
         return {"enabled": True, "status": "failed", "error": str(exc)}
 
 
-def dispatch_alerts(summary: dict[str, Any], output_dir: str | Path | None = None) -> dict[str, Any]:
-    """Write local alerts and optionally send Discord/email notifications."""
+def dispatch_alerts(
+    summary: dict[str, Any],
+    output_dir: str | Path | None = None,
+    notification_summary: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Write all alerts locally and send only the selected notification subset."""
     outputs = write_alert_outputs(summary, output_dir)
+    notifications = notification_summary if notification_summary is not None else summary
+    if notifications.get("alert_count", 0) == 0:
+        skipped = {"enabled": False, "status": "no new alerts"}
+        return {
+            "outputs": outputs,
+            "discord": skipped,
+            "email": skipped,
+            "notification_alert_count": 0,
+        }
     return {
         "outputs": outputs,
-        "discord": send_discord_alert(summary),
-        "email": send_email_alert(summary),
+        "discord": send_discord_alert(notifications),
+        "email": send_email_alert(notifications),
+        "notification_alert_count": notifications.get("alert_count", 0),
     }

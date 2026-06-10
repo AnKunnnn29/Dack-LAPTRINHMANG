@@ -3,7 +3,8 @@
 ## Description
 
 Skill nay theo doi log duoc uy quyen va phat hien cac dau hieu phong thu:
-malware-like indicator, brute force, exploit probe, traffic anomaly va alerting.
+malware-like indicator, brute force, exploit probe, traffic anomaly, ML anomaly
+detection va alerting.
 
 ## Inputs
 
@@ -21,10 +22,11 @@ malware-like indicator, brute force, exploit probe, traffic anomaly va alerting.
 
 1. Doc log mot lan hoac poll trong live mode.
 2. Parse tung event.
-3. Chay detector rule-based.
-4. Deduplicate alert theo stable alert id.
-5. Ghi alert JSON/Markdown.
-6. Gui Discord/email neu co bien moi truong.
+3. Trich xuat feature va train Isolation Forest tren log duoc chon.
+4. Ket hop ML anomaly candidates voi detector rule-based.
+5. Deduplicate alert theo stable alert id.
+6. Ghi alert JSON/Markdown.
+7. Gui Discord/email neu co bien moi truong.
 
 ## Safety Rules
 

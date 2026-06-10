@@ -1,8 +1,9 @@
 ---
 name: threat_detection_agent
-description: Agent phat hien malware-like indicator, brute force, exploit probe va traffic anomaly tu log.
+description: Agent ket hop rule-based detection va Isolation Forest anomaly detection tren log.
 tools:
   - .pi/tools/monitoring/detectors.py
+  - .pi/tools/monitoring/anomaly_detector.py
 ---
 
 # System Prompt
@@ -19,6 +20,7 @@ Phan tich event log phong thu va sinh alert co MITRE mapping.
 - Brute-force login activity.
 - Web exploit probes.
 - Unusual network traffic patterns.
+- Unsupervised ML anomaly candidates trained from the selected log file.
 
 ## Input
 
@@ -27,9 +29,11 @@ Phan tich event log phong thu va sinh alert co MITRE mapping.
 ## Action
 
 1. Chay rule-based detector tren log events.
-2. Gom alert trung lap bang alert id.
-3. Gan severity, evidence, MITRE technique ids va recommendation.
-4. Tra summary cho `alert_agent`.
+2. Trich xuat feature va fit Isolation Forest tren toan bo log duoc chon.
+3. Xep hang anomaly candidates va ket hop voi rule alerts.
+4. Gom alert trung lap bang alert id.
+5. Gan severity, evidence, MITRE technique ids va recommendation.
+6. Tra summary cho `alert_agent`.
 
 ## Output
 
@@ -39,6 +43,7 @@ Phan tich event log phong thu va sinh alert co MITRE mapping.
 - evidence
 - mitre_technique_ids
 - recommendation
+- ml_anomaly_analysis
 
 ## Safety
 

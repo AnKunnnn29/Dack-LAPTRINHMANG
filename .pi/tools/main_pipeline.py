@@ -7,7 +7,9 @@ File nay la entrypoint de thuyet trinh:
 """
 
 import argparse
+import json
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from common.tool_utils import (
@@ -23,6 +25,8 @@ from common.tool_utils import (
     setup_logging,
     triage_dir,
     write_json,
+    resolve_target,
+    validate_timeout,
 )
 from recon.banner_grabber import grab_banners
 from recon.dns_enum import enumerate_dns
@@ -91,23 +95,31 @@ def run_risk_stage(port_result: dict, dns_result: dict, banner_result: dict) -> 
     return risk_profile
 
 
-def run_report_stage() -> None:
+def run_report_stage(offline: bool = False) -> None:
     """STAGE 3 - AI/Offline Report Generation."""
     risk_path = triage_dir() / "risk_profile.json"
     report_path = results_dir() / "ket_qua.md"
     prompt_path = prompts_dir() / "report_prompt.md"
 
     logging.info("Stage 3 started: report generation")
-    generate_report(risk_path, report_path, prompt_path)
+    generate_report(risk_path, report_path, prompt_path, offline=offline)
     logging.info("Report generated: %s", report_path)
 
 
-def run_pipeline(target: str, ports: list[int], authorized: bool, timeout: float) -> dict:
+def run_pipeline(
+    target: str,
+    ports: list[int],
+    authorized: bool,
+    timeout: float,
+    offline: bool = False,
+) -> dict:
     """Chay tron ven pipeline va tra ve duong dan cac file output."""
     ensure_output_dirs()
     setup_logging(logs_dir() / "pipeline_run.log")
     load_env()
 
+    started = time.perf_counter()
+    timeout = validate_timeout(timeout)
     logging.info("Pipeline started for target=%s", target)
 
     # MARK: Safety gate - chi scan target demo hoac target da xac nhan co quyen.
@@ -119,11 +131,28 @@ def run_pipeline(target: str, ports: list[int], authorized: bool, timeout: float
         logging.warning(message)
         raise PermissionError(message)
 
+    resolved_addresses = resolve_target(target)
+    stage_started = time.perf_counter()
     port_result, dns_result, banner_result = run_recon_stage(target, ports, timeout)
+    recon_seconds = round(time.perf_counter() - stage_started, 4)
+    stage_started = time.perf_counter()
     run_risk_stage(port_result, dns_result, banner_result)
-    run_report_stage()
+    risk_seconds = round(time.perf_counter() - stage_started, 4)
+    stage_started = time.perf_counter()
+    run_report_stage(offline=offline)
+    report_seconds = round(time.perf_counter() - stage_started, 4)
 
     return {
+        "status": "completed",
+        "target": target,
+        "resolved_addresses": resolved_addresses,
+        "offline_report": offline,
+        "duration_seconds": round(time.perf_counter() - started, 4),
+        "stage_durations": {
+            "recon": recon_seconds,
+            "risk": risk_seconds,
+            "report": report_seconds,
+        },
         "port_scan_result": str(triage_dir() / "port_scan_result.json"),
         "dns_enum_result": str(triage_dir() / "dns_enum_result.json"),
         "banner_result": str(triage_dir() / "banner_result.json"),
@@ -139,20 +168,30 @@ def main() -> None:
     parser.add_argument("--ports", default="", help="Ports, e.g. 80,443,3000 or 1-1000")
     parser.add_argument("--authorized", action="store_true", help="Confirm permission to scan target")
     parser.add_argument("--timeout", type=float, default=0.5, help="Socket timeout in seconds")
+    parser.add_argument("--offline", action="store_true", help="Never call an AI report API")
     args = parser.parse_args()
 
     target, url_ports = parse_target(args.target)
     ports = choose_ports(args.ports, url_ports, DEFAULT_PORTS)
 
     try:
-        outputs = run_pipeline(target, ports, args.authorized, args.timeout)
-    except PermissionError as exc:
+        outputs = run_pipeline(target, ports, args.authorized, args.timeout, offline=args.offline)
+    except (PermissionError, ValueError) as exc:
         print(f"[BLOCKED] {exc}")
         return
 
     print("Pipeline completed.")
-    for name, path in outputs.items():
-        print(f"- {name}: {display_path(path)}")
+    path_keys = {
+        "port_scan_result",
+        "dns_enum_result",
+        "banner_result",
+        "risk_profile",
+        "report",
+        "log",
+    }
+    for name, value in outputs.items():
+        rendered = display_path(value) if name in path_keys else json.dumps(value, ensure_ascii=False)
+        print(f"- {name}: {rendered}")
 
 
 if __name__ == "__main__":

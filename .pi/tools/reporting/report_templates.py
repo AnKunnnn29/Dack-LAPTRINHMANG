@@ -37,6 +37,8 @@ def build_offline_report(profile: dict, reason: str = "No API key found") -> str
     open_ports = summary.get("open_ports", [])
     dns_message = summary.get("dns_message", "")
     banners = summary.get("banners", {})
+    services = summary.get("services", {})
+    tls = summary.get("tls", {})
     findings = profile.get("findings", [])
     mitre_mapping = profile.get("mitre_mapping", [])
     ml_model = profile.get("ml_model", {})
@@ -52,6 +54,8 @@ def build_offline_report(profile: dict, reason: str = "No API key found") -> str
         f"- Open ports: `{open_ports}`",
         f"- DNS status: {dns_message or 'N/A'}",
         f"- Banner results: `{banners}`",
+        f"- Service guesses: `{services}`",
+        f"- TLS metadata: `{tls}`",
         "",
         "## Risk Level",
         f"- Score: `{profile.get('score', 0)}`",
@@ -64,6 +68,7 @@ def build_offline_report(profile: dict, reason: str = "No API key found") -> str
         f"- Calibrated anomaly: `{ml_model.get('calibrated_anomaly', 'N/A')}`",
         f"- Exposure severity: `{ml_model.get('exposure_severity', 'N/A')}`",
         f"- Features: `{ml_model.get('features', {})}`",
+        f"- Risk drivers: `{ml_model.get('risk_drivers', [])}`",
         "",
         "## Findings",
     ]

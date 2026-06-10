@@ -15,7 +15,7 @@ from typing import Iterable
 if __package__ in {None, ""}:
     sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from common.tool_utils import parse_ports
+from common.tool_utils import parse_ports, validate_port, validate_timeout
 
 
 DEFAULT_PORTS = [
@@ -59,7 +59,8 @@ def scan_ports(
     - Ben trong port scanner, tung port cung duoc quet song song nhe de demo
       nhanh hon khi dung range lon nhu 1-1000.
     """
-    selected_ports = list(ports or DEFAULT_PORTS)
+    selected_ports = [validate_port(int(port)) for port in (ports or DEFAULT_PORTS)]
+    timeout = validate_timeout(timeout)
     open_ports = []
 
     max_workers = min(100, max(1, len(selected_ports)))

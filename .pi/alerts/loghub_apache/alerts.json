@@ -1,10 +1,597 @@
 {
-  "generated_at": "2026-06-08T17:42:59.814151+00:00",
+  "generated_at": "2026-06-10T15:54:14.456487+00:00",
   "event_count": 2000,
-  "alert_count": 0,
-  "alerts": [],
+  "alert_count": 1,
+  "alerts": [
+    {
+      "id": "ML_LOG_ANOMALY-a7822cb1a1",
+      "category": "ml_log_anomaly",
+      "severity": "Medium",
+      "status": "new",
+      "title": "ML log anomaly candidates detected",
+      "evidence": "Isolation Forest trained on 2000 events and flagged 56 anomaly candidates; top lines: [1421, 1890, 132, 1060, 588]",
+      "recommendation": "Review the ranked anomalous log lines and correlate them with rule-based alerts.",
+      "mitre_technique_ids": [
+        "T1087",
+        "T1110",
+        "T1190"
+      ],
+      "event_count": 20,
+      "first_seen": "",
+      "last_seen": "",
+      "sample_events": [
+        {
+          "line_number": 1421,
+          "anomaly_score": 1.0,
+          "raw_decision_score": 0.111272,
+          "event_type": "application_error",
+          "message": "[Mon Dec 05 10:26:39 2005] [error] [client 141.153.150.164] Directory index forbidden by rule: /var/www/html/",
+          "features": {
+            "message_length": 127.0,
+            "token_count": 15.0,
+            "digit_ratio": 0.188976,
+            "special_ratio": 0.133858,
+            "uppercase_ratio": 0.041667,
+            "unique_token_ratio": 1.0,
+            "ip_address_count": 1.0,
+            "path_depth": 4.0,
+            "error_keyword_count": 2.0,
+            "security_keyword_count": 0.0,
+            "template_rarity": 4.968821,
+            "event_type_rarity": 1.47278
+          }
+        },
+        {
+          "line_number": 1890,
+          "anomaly_score": 1.0,
+          "raw_decision_score": 0.111272,
+          "event_type": "application_error",
+          "message": "[Mon Dec 05 16:45:04 2005] [error] [client 216.216.185.130] Directory index forbidden by rule: /var/www/html/",
+          "features": {
+            "message_length": 127.0,
+            "token_count": 15.0,
+            "digit_ratio": 0.188976,
+            "special_ratio": 0.133858,
+            "uppercase_ratio": 0.041667,
+            "unique_token_ratio": 1.0,
+            "ip_address_count": 1.0,
+            "path_depth": 4.0,
+            "error_keyword_count": 2.0,
+            "security_keyword_count": 0.0,
+            "template_rarity": 4.968821,
+            "event_type_rarity": 1.47278
+          }
+        },
+        {
+          "line_number": 132,
+          "anomaly_score": 0.997756,
+          "raw_decision_score": 0.110511,
+          "event_type": "application_error",
+          "message": "[Sun Dec 04 05:15:09 2005] [error] [client 222.166.160.184] Directory index forbidden by rule: /var/www/html/",
+          "features": {
+            "message_length": 127.0,
+            "token_count": 15.0,
+            "digit_ratio": 0.188976,
+            "special_ratio": 0.133858,
+            "uppercase_ratio": 0.041667,
+            "unique_token_ratio": 1.0,
+            "ip_address_count": 1.0,
+            "path_depth": 4.0,
+            "error_keyword_count": 2.0,
+            "security_keyword_count": 0.0,
+            "template_rarity": 4.71949,
+            "event_type_rarity": 1.47278
+          }
+        },
+        {
+          "line_number": 1060,
+          "anomaly_score": 0.987087,
+          "raw_decision_score": 0.106892,
+          "event_type": "application_error",
+          "message": "[Mon Dec 05 03:23:24 2005] [error] [client 218.207.61.7] Directory index forbidden by rule: /var/www/html/",
+          "features": {
+            "message_length": 124.0,
+            "token_count": 15.0,
+            "digit_ratio": 0.169355,
+            "special_ratio": 0.137097,
+            "uppercase_ratio": 0.041667,
+            "unique_token_ratio": 1.0,
+            "ip_address_count": 1.0,
+            "path_depth": 4.0,
+            "error_keyword_count": 2.0,
+            "security_keyword_count": 0.0,
+            "template_rarity": 4.968821,
+            "event_type_rarity": 1.47278
+          }
+        },
+        {
+          "line_number": 588,
+          "anomaly_score": 0.982417,
+          "raw_decision_score": 0.105308,
+          "event_type": "application_error",
+          "message": "[Sun Dec 04 13:32:32 2005] [error] [client 65.68.235.27] Directory index forbidden by rule: /var/www/html/",
+          "features": {
+            "message_length": 124.0,
+            "token_count": 15.0,
+            "digit_ratio": 0.169355,
+            "special_ratio": 0.137097,
+            "uppercase_ratio": 0.041667,
+            "unique_token_ratio": 1.0,
+            "ip_address_count": 1.0,
+            "path_depth": 4.0,
+            "error_keyword_count": 2.0,
+            "security_keyword_count": 0.0,
+            "template_rarity": 4.71949,
+            "event_type_rarity": 1.47278
+          }
+        }
+      ]
+    }
+  ],
+  "ml_anomaly_analysis": {
+    "status": "completed",
+    "model_name": "IsolationForest",
+    "model_type": "unsupervised per-log-line anomaly detection",
+    "trained_on_event_count": 2000,
+    "n_estimators": 150,
+    "random_state": 42,
+    "contamination": 0.03,
+    "feature_names": [
+      "message_length",
+      "token_count",
+      "digit_ratio",
+      "special_ratio",
+      "uppercase_ratio",
+      "unique_token_ratio",
+      "ip_address_count",
+      "path_depth",
+      "error_keyword_count",
+      "security_keyword_count",
+      "template_rarity",
+      "event_type_rarity"
+    ],
+    "anomaly_count": 56,
+    "anomaly_rate": 0.028,
+    "top_anomalies": [
+      {
+        "line_number": 1421,
+        "anomaly_score": 1.0,
+        "raw_decision_score": 0.111272,
+        "event_type": "application_error",
+        "message": "[Mon Dec 05 10:26:39 2005] [error] [client 141.153.150.164] Directory index forbidden by rule: /var/www/html/",
+        "features": {
+          "message_length": 127.0,
+          "token_count": 15.0,
+          "digit_ratio": 0.188976,
+          "special_ratio": 0.133858,
+          "uppercase_ratio": 0.041667,
+          "unique_token_ratio": 1.0,
+          "ip_address_count": 1.0,
+          "path_depth": 4.0,
+          "error_keyword_count": 2.0,
+          "security_keyword_count": 0.0,
+          "template_rarity": 4.968821,
+          "event_type_rarity": 1.47278
+        }
+      },
+      {
+        "line_number": 1890,
+        "anomaly_score": 1.0,
+        "raw_decision_score": 0.111272,
+        "event_type": "application_error",
+        "message": "[Mon Dec 05 16:45:04 2005] [error] [client 216.216.185.130] Directory index forbidden by rule: /var/www/html/",
+        "features": {
+          "message_length": 127.0,
+          "token_count": 15.0,
+          "digit_ratio": 0.188976,
+          "special_ratio": 0.133858,
+          "uppercase_ratio": 0.041667,
+          "unique_token_ratio": 1.0,
+          "ip_address_count": 1.0,
+          "path_depth": 4.0,
+          "error_keyword_count": 2.0,
+          "security_keyword_count": 0.0,
+          "template_rarity": 4.968821,
+          "event_type_rarity": 1.47278
+        }
+      },
+      {
+        "line_number": 132,
+        "anomaly_score": 0.997756,
+        "raw_decision_score": 0.110511,
+        "event_type": "application_error",
+        "message": "[Sun Dec 04 05:15:09 2005] [error] [client 222.166.160.184] Directory index forbidden by rule: /var/www/html/",
+        "features": {
+          "message_length": 127.0,
+          "token_count": 15.0,
+          "digit_ratio": 0.188976,
+          "special_ratio": 0.133858,
+          "uppercase_ratio": 0.041667,
+          "unique_token_ratio": 1.0,
+          "ip_address_count": 1.0,
+          "path_depth": 4.0,
+          "error_keyword_count": 2.0,
+          "security_keyword_count": 0.0,
+          "template_rarity": 4.71949,
+          "event_type_rarity": 1.47278
+        }
+      },
+      {
+        "line_number": 1060,
+        "anomaly_score": 0.987087,
+        "raw_decision_score": 0.106892,
+        "event_type": "application_error",
+        "message": "[Mon Dec 05 03:23:24 2005] [error] [client 218.207.61.7] Directory index forbidden by rule: /var/www/html/",
+        "features": {
+          "message_length": 124.0,
+          "token_count": 15.0,
+          "digit_ratio": 0.169355,
+          "special_ratio": 0.137097,
+          "uppercase_ratio": 0.041667,
+          "unique_token_ratio": 1.0,
+          "ip_address_count": 1.0,
+          "path_depth": 4.0,
+          "error_keyword_count": 2.0,
+          "security_keyword_count": 0.0,
+          "template_rarity": 4.968821,
+          "event_type_rarity": 1.47278
+        }
+      },
+      {
+        "line_number": 588,
+        "anomaly_score": 0.982417,
+        "raw_decision_score": 0.105308,
+        "event_type": "application_error",
+        "message": "[Sun Dec 04 13:32:32 2005] [error] [client 65.68.235.27] Directory index forbidden by rule: /var/www/html/",
+        "features": {
+          "message_length": 124.0,
+          "token_count": 15.0,
+          "digit_ratio": 0.169355,
+          "special_ratio": 0.137097,
+          "uppercase_ratio": 0.041667,
+          "unique_token_ratio": 1.0,
+          "ip_address_count": 1.0,
+          "path_depth": 4.0,
+          "error_keyword_count": 2.0,
+          "security_keyword_count": 0.0,
+          "template_rarity": 4.71949,
+          "event_type_rarity": 1.47278
+        }
+      },
+      {
+        "line_number": 591,
+        "anomaly_score": 0.982417,
+        "raw_decision_score": 0.105308,
+        "event_type": "application_error",
+        "message": "[Sun Dec 04 15:59:01 2005] [error] [client 24.83.37.136] Directory index forbidden by rule: /var/www/html/",
+        "features": {
+          "message_length": 124.0,
+          "token_count": 15.0,
+          "digit_ratio": 0.169355,
+          "special_ratio": 0.137097,
+          "uppercase_ratio": 0.041667,
+          "unique_token_ratio": 1.0,
+          "ip_address_count": 1.0,
+          "path_depth": 4.0,
+          "error_keyword_count": 2.0,
+          "security_keyword_count": 0.0,
+          "template_rarity": 4.71949,
+          "event_type_rarity": 1.47278
+        }
+      },
+      {
+        "line_number": 806,
+        "anomaly_score": 0.982417,
+        "raw_decision_score": 0.105308,
+        "event_type": "application_error",
+        "message": "[Sun Dec 04 18:24:22 2005] [error] [client 125.30.38.52] Directory index forbidden by rule: /var/www/html/",
+        "features": {
+          "message_length": 124.0,
+          "token_count": 15.0,
+          "digit_ratio": 0.169355,
+          "special_ratio": 0.137097,
+          "uppercase_ratio": 0.041667,
+          "unique_token_ratio": 1.0,
+          "ip_address_count": 1.0,
+          "path_depth": 4.0,
+          "error_keyword_count": 2.0,
+          "security_keyword_count": 0.0,
+          "template_rarity": 4.71949,
+          "event_type_rarity": 1.47278
+        }
+      },
+      {
+        "line_number": 1989,
+        "anomaly_score": 0.976273,
+        "raw_decision_score": 0.103224,
+        "event_type": "application_error",
+        "message": "[Mon Dec 05 19:00:56 2005] [error] [client 68.228.3.15] Directory index forbidden by rule: /var/www/html/",
+        "features": {
+          "message_length": 123.0,
+          "token_count": 15.0,
+          "digit_ratio": 0.162602,
+          "special_ratio": 0.138211,
+          "uppercase_ratio": 0.041667,
+          "unique_token_ratio": 1.0,
+          "ip_address_count": 1.0,
+          "path_depth": 4.0,
+          "error_keyword_count": 2.0,
+          "security_keyword_count": 0.0,
+          "template_rarity": 4.968821,
+          "event_type_rarity": 1.47278
+        }
+      },
+      {
+        "line_number": 589,
+        "anomaly_score": 0.971626,
+        "raw_decision_score": 0.101648,
+        "event_type": "application_error",
+        "message": "[Sun Dec 04 14:29:00 2005] [error] [client 4.245.93.87] Directory index forbidden by rule: /var/www/html/",
+        "features": {
+          "message_length": 123.0,
+          "token_count": 15.0,
+          "digit_ratio": 0.162602,
+          "special_ratio": 0.138211,
+          "uppercase_ratio": 0.041667,
+          "unique_token_ratio": 1.0,
+          "ip_address_count": 1.0,
+          "path_depth": 4.0,
+          "error_keyword_count": 2.0,
+          "security_keyword_count": 0.0,
+          "template_rarity": 4.71949,
+          "event_type_rarity": 1.47278
+        }
+      },
+      {
+        "line_number": 1217,
+        "anomaly_score": 0.95384,
+        "raw_decision_score": 0.095616,
+        "event_type": "application_error",
+        "message": "[Mon Dec 05 06:36:59 2005] [error] [client 221.232.178.24] Directory index forbidden by rule: /var/www/html/",
+        "features": {
+          "message_length": 126.0,
+          "token_count": 15.0,
+          "digit_ratio": 0.18254,
+          "special_ratio": 0.134921,
+          "uppercase_ratio": 0.041667,
+          "unique_token_ratio": 1.0,
+          "ip_address_count": 1.0,
+          "path_depth": 4.0,
+          "error_keyword_count": 2.0,
+          "security_keyword_count": 0.0,
+          "template_rarity": 4.968821,
+          "event_type_rarity": 1.47278
+        }
+      },
+      {
+        "line_number": 1493,
+        "anomaly_score": 0.95384,
+        "raw_decision_score": 0.095616,
+        "event_type": "application_error",
+        "message": "[Mon Dec 05 10:48:48 2005] [error] [client 67.166.248.235] Directory index forbidden by rule: /var/www/html/",
+        "features": {
+          "message_length": 126.0,
+          "token_count": 15.0,
+          "digit_ratio": 0.18254,
+          "special_ratio": 0.134921,
+          "uppercase_ratio": 0.041667,
+          "unique_token_ratio": 1.0,
+          "ip_address_count": 1.0,
+          "path_depth": 4.0,
+          "error_keyword_count": 2.0,
+          "security_keyword_count": 0.0,
+          "template_rarity": 4.968821,
+          "event_type_rarity": 1.47278
+        }
+      },
+      {
+        "line_number": 1772,
+        "anomaly_score": 0.95384,
+        "raw_decision_score": 0.095616,
+        "event_type": "application_error",
+        "message": "[Mon Dec 05 14:11:43 2005] [error] [client 141.154.18.244] Directory index forbidden by rule: /var/www/html/",
+        "features": {
+          "message_length": 126.0,
+          "token_count": 15.0,
+          "digit_ratio": 0.18254,
+          "special_ratio": 0.134921,
+          "uppercase_ratio": 0.041667,
+          "unique_token_ratio": 1.0,
+          "ip_address_count": 1.0,
+          "path_depth": 4.0,
+          "error_keyword_count": 2.0,
+          "security_keyword_count": 0.0,
+          "template_rarity": 4.968821,
+          "event_type_rarity": 1.47278
+        }
+      },
+      {
+        "line_number": 1892,
+        "anomaly_score": 0.95384,
+        "raw_decision_score": 0.095616,
+        "event_type": "application_error",
+        "message": "[Mon Dec 05 17:31:39 2005] [error] [client 218.75.106.250] Directory index forbidden by rule: /var/www/html/",
+        "features": {
+          "message_length": 126.0,
+          "token_count": 15.0,
+          "digit_ratio": 0.18254,
+          "special_ratio": 0.134921,
+          "uppercase_ratio": 0.041667,
+          "unique_token_ratio": 1.0,
+          "ip_address_count": 1.0,
+          "path_depth": 4.0,
+          "error_keyword_count": 2.0,
+          "security_keyword_count": 0.0,
+          "template_rarity": 4.968821,
+          "event_type_rarity": 1.47278
+        }
+      },
+      {
+        "line_number": 586,
+        "anomaly_score": 0.953427,
+        "raw_decision_score": 0.095476,
+        "event_type": "application_error",
+        "message": "[Sun Dec 04 11:42:43 2005] [error] [client 216.127.124.16] Directory index forbidden by rule: /var/www/html/",
+        "features": {
+          "message_length": 126.0,
+          "token_count": 15.0,
+          "digit_ratio": 0.18254,
+          "special_ratio": 0.134921,
+          "uppercase_ratio": 0.041667,
+          "unique_token_ratio": 1.0,
+          "ip_address_count": 1.0,
+          "path_depth": 4.0,
+          "error_keyword_count": 2.0,
+          "security_keyword_count": 0.0,
+          "template_rarity": 4.71949,
+          "event_type_rarity": 1.47278
+        }
+      },
+      {
+        "line_number": 587,
+        "anomaly_score": 0.953427,
+        "raw_decision_score": 0.095476,
+        "event_type": "application_error",
+        "message": "[Sun Dec 04 12:33:13 2005] [error] [client 208.51.151.210] Directory index forbidden by rule: /var/www/html/",
+        "features": {
+          "message_length": 126.0,
+          "token_count": 15.0,
+          "digit_ratio": 0.18254,
+          "special_ratio": 0.134921,
+          "uppercase_ratio": 0.041667,
+          "unique_token_ratio": 1.0,
+          "ip_address_count": 1.0,
+          "path_depth": 4.0,
+          "error_keyword_count": 2.0,
+          "security_keyword_count": 0.0,
+          "template_rarity": 4.71949,
+          "event_type_rarity": 1.47278
+        }
+      },
+      {
+        "line_number": 805,
+        "anomaly_score": 0.953427,
+        "raw_decision_score": 0.095476,
+        "event_type": "application_error",
+        "message": "[Sun Dec 04 17:53:43 2005] [error] [client 218.39.132.175] Directory index forbidden by rule: /var/www/html/",
+        "features": {
+          "message_length": 126.0,
+          "token_count": 15.0,
+          "digit_ratio": 0.18254,
+          "special_ratio": 0.134921,
+          "uppercase_ratio": 0.041667,
+          "unique_token_ratio": 1.0,
+          "ip_address_count": 1.0,
+          "path_depth": 4.0,
+          "error_keyword_count": 2.0,
+          "security_keyword_count": 0.0,
+          "template_rarity": 4.71949,
+          "event_type_rarity": 1.47278
+        }
+      },
+      {
+        "line_number": 796,
+        "anomaly_score": 0.951781,
+        "raw_decision_score": 0.094917,
+        "event_type": "application_error",
+        "message": "[Sun Dec 04 17:43:12 2005] [error] mod_jk child init 1 -2",
+        "features": {
+          "message_length": 75.0,
+          "token_count": 12.0,
+          "digit_ratio": 0.186667,
+          "special_ratio": 0.12,
+          "uppercase_ratio": 0.04878,
+          "unique_token_ratio": 1.0,
+          "ip_address_count": 0.0,
+          "path_depth": 0.0,
+          "error_keyword_count": 2.0,
+          "security_keyword_count": 0.0,
+          "template_rarity": 5.812138,
+          "event_type_rarity": 1.47278
+        }
+      },
+      {
+        "line_number": 802,
+        "anomaly_score": 0.951781,
+        "raw_decision_score": 0.094917,
+        "event_type": "application_error",
+        "message": "[Sun Dec 04 17:43:12 2005] [error] mod_jk child init 1 -2",
+        "features": {
+          "message_length": 75.0,
+          "token_count": 12.0,
+          "digit_ratio": 0.186667,
+          "special_ratio": 0.12,
+          "uppercase_ratio": 0.04878,
+          "unique_token_ratio": 1.0,
+          "ip_address_count": 0.0,
+          "path_depth": 0.0,
+          "error_keyword_count": 2.0,
+          "security_keyword_count": 0.0,
+          "template_rarity": 5.812138,
+          "event_type_rarity": 1.47278
+        }
+      },
+      {
+        "line_number": 1037,
+        "anomaly_score": 0.951781,
+        "raw_decision_score": 0.094917,
+        "event_type": "application_error",
+        "message": "[Sun Dec 04 20:47:16 2005] [error] mod_jk child init 1 -2",
+        "features": {
+          "message_length": 75.0,
+          "token_count": 12.0,
+          "digit_ratio": 0.186667,
+          "special_ratio": 0.12,
+          "uppercase_ratio": 0.04878,
+          "unique_token_ratio": 1.0,
+          "ip_address_count": 0.0,
+          "path_depth": 0.0,
+          "error_keyword_count": 2.0,
+          "security_keyword_count": 0.0,
+          "template_rarity": 5.812138,
+          "event_type_rarity": 1.47278
+        }
+      },
+      {
+        "line_number": 1042,
+        "anomaly_score": 0.951781,
+        "raw_decision_score": 0.094917,
+        "event_type": "application_error",
+        "message": "[Sun Dec 04 20:47:17 2005] [error] mod_jk child init 1 -2",
+        "features": {
+          "message_length": 75.0,
+          "token_count": 12.0,
+          "digit_ratio": 0.186667,
+          "special_ratio": 0.12,
+          "uppercase_ratio": 0.04878,
+          "unique_token_ratio": 1.0,
+          "ip_address_count": 0.0,
+          "path_depth": 0.0,
+          "error_keyword_count": 2.0,
+          "security_keyword_count": 0.0,
+          "template_rarity": 5.812138,
+          "event_type_rarity": 1.47278
+        }
+      }
+    ],
+    "notes": [
+      "The model is fitted directly on the selected log file.",
+      "Anomalies are candidates for human review, not proof of an attack.",
+      "Isolation Forest does not require labeled training data."
+    ]
+  },
+  "monitoring_risk_profile": {
+    "score": 4,
+    "risk_level": "Medium",
+    "rule_points": 0.75,
+    "ml_anomaly_points": 3.0,
+    "high_alert_count": 0,
+    "medium_alert_count": 1,
+    "top_ml_anomaly_score": 1.0,
+    "explanation": "Rule alert severity and the strongest Isolation Forest anomaly are combined."
+  },
   "notes": [
-    "Detections are rule-based for defensive classroom demonstration.",
+    "Detections combine defensive rules with optional unsupervised ML anomaly detection.",
     "Alerts require human validation before incident response action.",
     "No exploit, malware execution, brute force, or offensive action is performed."
   ]
