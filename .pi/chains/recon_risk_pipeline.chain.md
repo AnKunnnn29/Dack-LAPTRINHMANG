@@ -16,9 +16,6 @@ model, map findings to MITRE ATT&CK, and generate a defensive Markdown report.
 - `banner_grab_agent`: collects lightweight service banners.
 - `risk_score_agent`: extracts ML features and runs Isolation Forest scoring.
 - `report_agent`: writes the final defensive Markdown report.
-- `log_monitor_agent`: reads authorized logs once or in live polling mode.
-- `threat_detection_agent`: detects malware-like, brute-force, exploit, and traffic anomaly signals.
-- `alert_agent`: writes local alerts and optionally sends Discord/email notifications.
 
 ## Stage 0: Permission Gate
 
@@ -119,34 +116,6 @@ Output:
 
 - `.pi/results/ket_qua.md`
 
-## Stage 4: Defensive Monitoring And Alerting
-
-Agents:
-
-- `log_monitor_agent`
-- `threat_detection_agent`
-- `alert_agent`
-
-Tools:
-
-- `.pi/tools/monitoring/log_monitor.py`
-- `.pi/tools/monitoring/detectors.py`
-- `.pi/tools/monitoring/alerter.py`
-
-Process:
-
-1. Read authorized log events from `.pi/data/sample_security_events.log` or another log file.
-2. Extract per-line features and train Isolation Forest on the selected log.
-3. Detect malware-like indicators, brute force, web exploit probes, traffic anomalies, and ML anomaly candidates.
-4. Map alerts to defensive MITRE context.
-5. Write alert JSON and Markdown.
-6. Send Discord/email only when environment variables are configured.
-
-Outputs:
-
-- `.pi/alerts/alerts.json`
-- `.pi/alerts/alert_report.md`
-
 ## Week 5 Agentic Extension
 
 The deterministic pipeline above is the stable demo path.
@@ -191,7 +160,7 @@ orchestrator_agent
      /join
   -> risk_score_agent
   -> report_agent
-  -> log_monitor_agent
-  -> threat_detection_agent
-  -> alert_agent
+
+Optional Week 5 extension:
+  pi_recon_agent.py wraps the same tools in an OpenAI tool-calling loop.
 ```

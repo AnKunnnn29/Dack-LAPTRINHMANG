@@ -100,7 +100,7 @@ def build_recommendations(open_ports: list[int], version_leaks: list[int]) -> li
         "Chi quet va danh gia tren target duoc uy quyen.",
         "Dong cac port khong can thiet bang firewall hoac security group.",
         "Cap nhat he dieu hanh va dich vu mang len phien ban on dinh moi.",
-        "Theo doi log de phat hien hoat dong network discovery bat thuong.",
+        "Ghi lai hoat dong scan va ra soat log he thong khi can dieu tra.",
     ]
 
     if 21 in open_ports:

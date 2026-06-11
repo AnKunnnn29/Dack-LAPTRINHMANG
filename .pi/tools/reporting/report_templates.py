@@ -102,7 +102,7 @@ def build_offline_report(profile: dict, reason: str = "No API key found") -> str
             "## Conclusion",
             "This report is for defensive assessment on authorized systems only. "
             "Prioritize closing unnecessary services, limiting access scope, "
-            "reducing banner exposure, and monitoring discovery activity.",
+            "reducing banner exposure, and reviewing scan findings with a human analyst.",
             "",
             f"> Offline fallback used: {reason}",
         ]

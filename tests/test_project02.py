@@ -1,25 +1,26 @@
 """Small regression tests for Topic 02.
 
-These tests are intentionally simple so they are easy to explain in an oral exam:
+These tests focus on the scoped final project:
 - parse target and ports correctly
-- convert recon data into a risk profile
 - keep the allowlist safety gate working
+- run the offline recon -> risk -> report pipeline
+- keep the Week 5 agentic extension wired to the same core tools
 """
 
 from __future__ import annotations
 
+import json
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-from fastapi import HTTPException
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 TOOLS_DIR = PROJECT_ROOT / ".pi" / "tools"
 sys.path.insert(0, str(TOOLS_DIR))
 
-from api_server import ScanRequest, create_scan, dashboard, health, latest_alerts, latest_risk  # noqa: E402
+import pi_recon_agent  # noqa: E402
 from common.tool_utils import (  # noqa: E402
     display_path,
     is_target_allowed,
@@ -29,17 +30,14 @@ from common.tool_utils import (  # noqa: E402
     validate_timeout,
 )
 from main_pipeline import run_pipeline  # noqa: E402
-from monitoring.anomaly_detector import analyze_log_anomalies, extract_log_features  # noqa: E402
-from monitoring.log_monitor import run_monitor_live, run_monitor_once  # noqa: E402
-from monitoring.detectors import detect_threats, load_events  # noqa: E402
 from recon.banner_grabber import grab_banners, identify_service, inspect_tls  # noqa: E402
 from recon.dns_enum import enumerate_dns  # noqa: E402
 from recon.port_scanner import scan_ports  # noqa: E402
 from recon.udp_scanner import scan_udp_ports  # noqa: E402
 from reporting.ai_reporter import generate_report  # noqa: E402
 from reporting.report_templates import build_offline_report, load_prompt  # noqa: E402
+from risk.risk_model import predict_with_isolation_forest  # noqa: E402
 from risk.risk_scorer import classify_target_exposure, score_risk, score_risk_from_files  # noqa: E402
-from risk.evaluate_models import evaluate_models  # noqa: E402
 
 
 class Project02Tests(unittest.TestCase):
@@ -86,6 +84,7 @@ class Project02Tests(unittest.TestCase):
                 "8000": "HTTP/1.1 200 OK\r\nServer: SimpleHTTP/0.6 Python/3.12",
                 "3306": "MySQL 8.0.36",
             },
+            "services": {"8000": "http", "3306": "mysql"},
         }
 
         profile = score_risk(port_result, dns_result, banner_result)
@@ -101,7 +100,26 @@ class Project02Tests(unittest.TestCase):
         self.assertTrue(profile["ml_model"]["risk_drivers"])
         self.assertIn("services", profile["recon_summary"])
 
-    def test_agent_definitions_include_orchestration_and_safety(self) -> None:
+    def test_isolation_forest_prediction_is_explainable(self) -> None:
+        prediction = predict_with_isolation_forest(
+            {
+                "open_port_count": 3,
+                "sensitive_port_count": 1,
+                "high_risk_port_count": 1,
+                "database_cache_port_count": 1,
+                "http_port_count": 1,
+                "version_banner_count": 1,
+                "dns_record_count": 2,
+            }
+        )
+
+        self.assertEqual(prediction["model_name"], "SimpleIsolationForestRiskModel")
+        self.assertEqual(prediction["model_type"], "unsupervised Isolation Forest anomaly detection")
+        self.assertEqual(prediction["n_trees"], 64)
+        self.assertIn(prediction["predicted_label"], {"Low", "Medium", "High"})
+        self.assertTrue(prediction["risk_drivers"])
+
+    def test_agent_definitions_match_scoped_topic02_pipeline(self) -> None:
         agents_dir = PROJECT_ROOT / ".pi" / "agents"
         expected_agents = {
             "orchestrator_agent.md",
@@ -111,6 +129,8 @@ class Project02Tests(unittest.TestCase):
             "banner_grab_agent.md",
             "risk_score_agent.md",
             "report_agent.md",
+        }
+        removed_optional_agents = {
             "log_monitor_agent.md",
             "threat_detection_agent.md",
             "alert_agent.md",
@@ -118,77 +138,15 @@ class Project02Tests(unittest.TestCase):
 
         existing_agents = {path.name for path in agents_dir.glob("*.md")}
         self.assertTrue(expected_agents.issubset(existing_agents))
-
-    def test_monitoring_detects_sample_threat_categories(self) -> None:
-        sample_log = PROJECT_ROOT / ".pi" / "data" / "sample_security_events.log"
-        events = load_events(sample_log)
-        summary = detect_threats(events)
-        categories = {alert["category"] for alert in summary["alerts"]}
-
-        self.assertGreaterEqual(summary["alert_count"], 4)
-        self.assertIn("malware_indicator", categories)
-        self.assertIn("brute_force", categories)
-        self.assertIn("exploit_attempt", categories)
-        self.assertIn("traffic_anomaly", categories)
-
-    def test_monitoring_detects_public_loghub_openssh_brute_force(self) -> None:
-        public_log = PROJECT_ROOT / ".pi" / "data" / "loghub_openssh_2k.log"
-        events = load_events(public_log)
-        summary = detect_threats(events)
-        categories = {alert["category"] for alert in summary["alerts"]}
-
-        self.assertEqual(len(events), 2000)
-        self.assertIn("brute_force", categories)
-        self.assertGreaterEqual(summary["alert_count"], 1)
-
-    def test_loghub_2k_is_used_to_train_ml_anomaly_model(self) -> None:
-        public_log = PROJECT_ROOT / ".pi" / "data" / "loghub_openssh_2k.log"
-        events = load_events(public_log)
-        vectors, feature_maps = extract_log_features(events)
-        analysis = analyze_log_anomalies(events, contamination=0.03, top_limit=10)
-
-        self.assertEqual(len(vectors), 2000)
-        self.assertEqual(len(feature_maps), 2000)
-        self.assertEqual(analysis["status"], "completed")
-        self.assertEqual(analysis["trained_on_event_count"], 2000)
-        self.assertGreater(analysis["anomaly_count"], 0)
-        self.assertTrue(analysis["top_anomalies"])
-        self.assertTrue(
-            any(
-                "break-in attempt" in item["message"].lower()
-                for item in analysis["top_anomalies"]
-            )
-        )
-
-    def test_monitoring_summary_includes_ml_anomaly_analysis(self) -> None:
-        public_log = PROJECT_ROOT / ".pi" / "data" / "loghub_apache_2k.log"
-        summary = detect_threats(load_events(public_log))
-        categories = {alert["category"] for alert in summary["alerts"]}
-
-        self.assertEqual(summary["ml_anomaly_analysis"]["trained_on_event_count"], 2000)
-        self.assertGreater(summary["ml_anomaly_analysis"]["anomaly_count"], 0)
-        self.assertIn("ml_log_anomaly", categories)
-        self.assertGreater(summary["monitoring_risk_profile"]["ml_anomaly_points"], 0)
-        self.assertIn(summary["monitoring_risk_profile"]["risk_level"], {"Low", "Medium", "High"})
-
-    def test_missing_monitor_log_fails_clearly(self) -> None:
-        with self.assertRaises(FileNotFoundError):
-            load_events(PROJECT_ROOT / ".pi" / "data" / "missing.log")
-
-    def test_monitor_deduplicates_notifications(self) -> None:
-        sample_log = PROJECT_ROOT / ".pi" / "data" / "sample_security_events.log"
-        with tempfile.TemporaryDirectory() as output_dir:
-            seen: set[str] = set()
-            first = run_monitor_once(sample_log, output_dir, seen)
-            second = run_monitor_once(sample_log, output_dir, seen)
-            self.assertGreater(first["dispatch"]["notification_alert_count"], 0)
-            self.assertEqual(second["dispatch"]["notification_alert_count"], 0)
+        self.assertTrue(removed_optional_agents.isdisjoint(existing_agents))
 
     def test_offline_pipeline_runs_end_to_end(self) -> None:
         result = run_pipeline("localhost", [9], False, 0.05, offline=True)
         self.assertEqual(result["status"], "completed")
         self.assertTrue(result["offline_report"])
         self.assertIn("recon", result["stage_durations"])
+        self.assertTrue(Path(result["risk_profile"]).exists())
+        self.assertTrue(Path(result["report"]).exists())
 
     def test_udp_scanner_rejects_invalid_port(self) -> None:
         with self.assertRaises(ValueError):
@@ -207,31 +165,8 @@ class Project02Tests(unittest.TestCase):
         self.assertEqual(identify_service(22, "SSH-2.0-OpenSSH_9.0"), "ssh")
         self.assertEqual(inspect_tls("localhost", 9, 0.05), {})
 
-    def test_api_health_dashboard_and_safe_scan(self) -> None:
-        self.assertEqual(health()["status"], "ok")
-        self.assertIn("Run safe scan", dashboard())
-        result = create_scan(ScanRequest(target="localhost", ports="9", timeout=0.05))
-        self.assertEqual(result["status"], "completed")
-        self.assertEqual(latest_risk()["target"], "localhost")
-        self.assertIn("alert_count", latest_alerts())
-        with self.assertRaises(HTTPException):
-            create_scan(ScanRequest(target="example.invalid", ports="9", timeout=0.05))
-
-    def test_model_evaluation_reports_quality_metrics(self) -> None:
-        evaluation = evaluate_models()
-        self.assertEqual(evaluation["sample_count"], 12)
-        for model in ["isolation_forest", "random_forest"]:
-            self.assertIn("precision", evaluation[model])
-            self.assertIn("recall", evaluation[model])
-            self.assertIn("false_positive_rate", evaluation[model])
-
-    def test_live_monitor_and_offline_report_helpers(self) -> None:
-        sample_log = PROJECT_ROOT / ".pi" / "data" / "sample_security_events.log"
+    def test_offline_report_helpers(self) -> None:
         with tempfile.TemporaryDirectory() as output_dir:
-            result = run_monitor_live(sample_log, output_dir, duration=0, poll_interval=0.2)
-            self.assertEqual(result["mode"], "live")
-            self.assertGreater(result["notification_alert_count_total"], 0)
-
             profile = score_risk(
                 {"target": "localhost", "open_ports": [8000]},
                 {"target": "localhost", "message": "skipped", "records": {}},
@@ -239,7 +174,7 @@ class Project02Tests(unittest.TestCase):
             )
             risk_path = Path(output_dir) / "risk.json"
             report_path = Path(output_dir) / "report.md"
-            risk_path.write_text(__import__("json").dumps(profile), encoding="utf-8")
+            risk_path.write_text(json.dumps(profile), encoding="utf-8")
             report = generate_report(risk_path, report_path, offline=True)
             self.assertIn("Offline fallback used: Offline mode requested", report)
             self.assertEqual(load_prompt(Path(output_dir) / "missing.md"), load_prompt())
@@ -258,11 +193,25 @@ class Project02Tests(unittest.TestCase):
             ]
             paths = [base / f"{index}.json" for index in range(3)]
             for path, payload in zip(paths, payloads):
-                path.write_text(__import__("json").dumps(payload), encoding="utf-8")
+                path.write_text(json.dumps(payload), encoding="utf-8")
             output = base / "risk.json"
             profile = score_risk_from_files(*paths, output)
             self.assertTrue(output.exists())
             self.assertEqual(profile["target_exposure"], "local")
+
+    def test_week5_agentic_extension_exposes_core_topic02_tools(self) -> None:
+        tool_names = {tool["function"]["name"] for tool in pi_recon_agent.TOOLS}
+        self.assertEqual(
+            tool_names,
+            {
+                "scan_ports",
+                "enumerate_dns",
+                "grab_banners",
+                "score_risk_from_triage",
+                "generate_markdown_report",
+            },
+        )
+        self.assertIn("Observe-Think-Act", pi_recon_agent.__doc__ or "")
 
 
 if __name__ == "__main__":

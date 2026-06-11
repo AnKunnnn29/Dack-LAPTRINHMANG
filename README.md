@@ -8,6 +8,10 @@ Build a multi-agent pipeline that runs **port scanning**, **DNS enumeration**, a
 **banner grabbing** in parallel, then combines the findings into an **ML-based
 risk score** and a **MITRE-mapped Markdown report**.
 
+This repository is intentionally scoped to the core Topic 02 requirements. The
+stable demo path is deterministic and offline-friendly. The OpenAI agent loop is
+kept only as a **Week 5 optional extension**.
+
 ## Pipeline To Remember
 
 ```text
@@ -24,11 +28,6 @@ Stage 2 - ML Risk Scoring
 
 Stage 3 - Report Generation
   report_agent         -> .pi/results/ket_qua.md
-
-Stage 4 - Defensive Monitoring
-  log_monitor_agent    -> read authorized logs
-  threat_detection_agent -> rules + Isolation Forest log anomaly detection
-  alert_agent          -> .pi/alerts/alerts.json and alert_report.md
 ```
 
 The most important Topic 02 point is Stage 1 parallelism:
@@ -55,8 +54,8 @@ In runnable Python, this is implemented with `ThreadPoolExecutor` in
 | Python tools | `.pi/tools/recon`, `.pi/tools/risk`, `.pi/tools/reporting` |
 | Chain/orchestration | `.pi/chains/recon_risk_pipeline.chain.md` |
 | Prompt file | `.pi/prompts/report_prompt.md` |
-| End-to-end demo target | localhost with Python's built-in `http.server` |
-| GPT/agent loop extension | `.pi/tools/pi_recon_agent.py` |
+| End-to-end demo target | `localhost` with Python's built-in `http.server` |
+| Week 5 agent loop extension | `.pi/tools/pi_recon_agent.py` |
 
 ## Code Design
 
@@ -64,25 +63,21 @@ The code is intentionally simple for oral defense:
 
 - Recon tools use normal Python sockets and short timeouts.
 - Stage 1 runs three independent tools at the same time.
-- Risk scoring uses a small Isolation Forest anomaly model with explainable numeric features.
-- Monitoring trains a separate Isolation Forest directly on each selected Loghub file.
+- Risk scoring uses a small, explainable Isolation Forest-style anomaly model.
 - Report generation uses GPT when an API key exists and an offline template when it does not.
 - Safety gate blocks non-allowlisted targets unless `--authorized` is explicitly provided.
 
 ## Agent Design
 
-The `.pi/agents` folder defines ten agents:
+The `.pi/agents` folder defines seven core agents:
 
 - `orchestrator_agent`: coordinates the full pipeline and handoffs.
 - `permission_gate_agent`: blocks unauthorized targets before network activity.
 - `port_scan_agent`: checks candidate TCP ports.
-- `dns_enum_agent`: collects A/MX/NS/TXT DNS records when applicable.
-- `banner_grab_agent`: collects lightweight service banners.
+- `dns_enum_agent`: collects A/CNAME/MX/NS/SOA/TXT DNS records when applicable.
+- `banner_grab_agent`: collects lightweight service banners and TLS metadata.
 - `risk_score_agent`: runs Isolation Forest risk scoring and MITRE mapping.
 - `report_agent`: creates the final defensive Markdown report.
-- `log_monitor_agent`: monitors authorized log files.
-- `threat_detection_agent`: detects malware-like, brute-force, exploit, and traffic anomaly signals.
-- `alert_agent`: writes alerts and optionally sends Discord/email notifications.
 
 ## Install
 
@@ -126,7 +121,8 @@ Outputs:
 
 ## Run The Week 5 Agentic Mode
 
-This optional mode uses the OpenAI API.
+This optional mode uses the OpenAI API and is kept to show the Week 5
+Observe-Think-Act/tool-calling pattern.
 
 Create `.env`:
 
@@ -147,7 +143,7 @@ Why this file exists:
 - It defines OpenAI tool schemas.
 - It implements the Observe-Think-Act agent loop.
 - It preserves assistant `tool_calls` and appends `tool` results.
-- It executes a batch of requested tool calls before the next model call.
+- It executes requested tool calls before the next model call.
 - It can parse JSON tool plans if an API response returns tool calls as text.
 - It reuses the same simple Topic 02 tools, so the core project remains easy to explain.
 
@@ -158,87 +154,10 @@ python -m unittest discover -s tests
 python -m compileall .pi/tools
 ```
 
-## Run Defensive Monitoring Demo
+## Optional UDP Check
 
-This extension detects risk signals from an authorized sample log. It does not
-execute malware, brute force, exploits, or harmful traffic.
-
-```bash
-python .pi/tools/threat_monitor.py --log-file .pi/data/sample_security_events.log
-```
-
-Public Loghub OpenSSH demo:
-
-```bash
-python .pi/tools/threat_monitor.py --log-file .pi/data/loghub_openssh_2k.log --output-dir .pi/alerts/loghub_openssh
-```
-
-Standalone ML training and anomaly ranking:
-
-```bash
-python .pi/tools/log_anomaly.py --log-file .pi/data/loghub_openssh_2k.log --top 20 --output .pi/alerts/loghub_openssh/ml_anomalies.json
-python .pi/tools/log_anomaly.py --log-file .pi/data/loghub_apache_2k.log --top 20 --output .pi/alerts/loghub_apache/ml_anomalies.json
-```
-
-The public OpenSSH log is from LogPAI/loghub, a public system log dataset for
-AI-driven log analytics. The OpenSSH README says the log was collected from an
-OpenSSH server in their lab over 28+ days.
-
-The monitoring ML flow:
-
-1. Parse all 2,000 raw log lines into events.
-2. Extract 12 explainable features per line, including message length, token
-   count, IP count, error/security keyword counts, and template rarity.
-3. Standardize the feature vectors.
-4. Fit an unsupervised `IsolationForest` on the selected 2,000-line file.
-5. Rank anomaly candidates and combine them with rule-based alerts.
-6. Combine rule severity and the strongest ML anomaly into a separate
-   `monitoring_risk_profile` score from 0 to 10.
-
-This is separate from the network exposure risk model because log-line features
-and scan-result features describe different security problems.
-
-Outputs:
-
-- `.pi/alerts/alerts.json`
-- `.pi/alerts/alert_report.md`
-- Optional standalone `.pi/alerts/.../ml_anomalies.json`
-
-Live polling demo:
-
-```bash
-python .pi/tools/threat_monitor.py --live --duration 20 --poll-interval 2
-```
-
-Use `--no-ml` to run only the original rules, or change the expected anomaly
-fraction with `--ml-contamination 0.03`.
-
-Optional Discord/email alerting is controlled by `.env` variables shown in
-`.env.example`.
-
-Live mode stores delivered alert IDs in `monitor_state.json`, so repeated polls
-do not resend the same alert.
-
-## Run The API And Dashboard
-
-```bash
-uvicorn api_server:app --app-dir .pi/tools --host 127.0.0.1 --port 8000
-```
-
-Open:
-
-- Dashboard: `http://127.0.0.1:8000`
-- OpenAPI documentation: `http://127.0.0.1:8000/docs`
-- Health check: `http://127.0.0.1:8000/health`
-
-Optional API protection:
-
-```env
-API_KEY=replace_with_a_long_random_value
-ALLOW_NON_ALLOWLISTED_TARGETS=false
-```
-
-Limited UDP reachability check for an authorized lab target:
+The main project is TCP recon. A small UDP reachability helper is kept as a
+minor network-programming utility:
 
 ```bash
 python .pi/tools/udp_scanner.py --target localhost --ports "53,123,161"
@@ -247,34 +166,14 @@ python .pi/tools/udp_scanner.py --target localhost --ports "53,123,161"
 UDP timeouts are reported as `open_or_filtered`; they are not treated as proof
 that a UDP service is open.
 
-Compare the Isolation Forest score with a supervised Random Forest on the
-included classroom scenarios:
-
-```bash
-python .pi/tools/evaluate_models.py
-```
-
-The output includes precision, recall, false-positive rate, and a warning that
-the small classroom dataset is not sufficient for production decisions.
-
-Public log files included:
-
-- `.pi/data/loghub_openssh_2k.log`
-- `.pi/data/loghub_apache_2k.log`
-
-Source:
-
-- https://github.com/logpai/loghub/tree/master/OpenSSH
-- https://github.com/logpai/loghub/tree/master/Apache
-
 ## Oral Defense Notes
 
 Short answer for "What does your project do?":
 
 > My project is Topic 02: Network Recon + Risk Profiler. It runs port scanning,
 > DNS enumeration, and banner grabbing in parallel, then extracts simple features,
-> predicts Low/Medium/High risk with an Isolation Forest model, maps findings to
-> MITRE ATT&CK, and writes a defensive Markdown report.
+> predicts Low/Medium/High risk with an Isolation Forest-style model, maps findings
+> to MITRE ATT&CK, and writes a defensive Markdown report.
 
 Short answer for "Where is parallelism?":
 
@@ -285,10 +184,8 @@ Short answer for "Where is ML?":
 
 > `risk_features.py` converts recon output into numeric features, and
 > `risk_model.py` uses a small Isolation Forest baseline to detect unusual
-> exposure. The anomaly score is calibrated into a 0-10 Low/Medium/High risk
-> result for the classroom report. Separately, `monitoring/anomaly_detector.py`
-> trains Isolation Forest directly on all 2,000 Loghub lines to rank unusual
-> security log events without requiring labels.
+> network exposure. The anomaly score is calibrated into a 0-10 Low/Medium/High
+> risk result for the classroom report.
 
 Short answer for "Where is the AI agent?":
 
