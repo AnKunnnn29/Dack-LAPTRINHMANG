@@ -12,7 +12,7 @@ import math
 import random
 from dataclasses import dataclass
 
-from risk.risk_config import FEATURE_NAMES
+from risk.risk_config import FEATURE_NAMES, FEATURE_WEIGHTS
 
 
 # MARK: Baseline data
@@ -154,29 +154,16 @@ class SimpleIsolationForestRiskModel:
 
 def exposure_severity(feature_map: dict) -> float:
     """Bo sung calibration de score 0-10 gan voi rui ro network de giai thich."""
-    weighted_total = (
-        feature_map["open_port_count"] * 0.8
-        + feature_map["sensitive_port_count"] * 1.2
-        + feature_map["high_risk_port_count"] * 2.0
-        + feature_map["database_cache_port_count"] * 1.4
-        + feature_map["http_port_count"] * 0.7
-        + feature_map["version_banner_count"] * 1.1
-        + feature_map["dns_record_count"] * 0.25
+    weighted_total = sum(
+        feature_map[name] * weight
+        for name, weight in FEATURE_WEIGHTS.items()
     )
     return min(1.0, weighted_total / 10.0)
 
 
 def explain_exposure(feature_map: dict) -> list[dict]:
     """Expose each weighted contribution used by the classroom risk model."""
-    weights = {
-        "open_port_count": 0.8,
-        "sensitive_port_count": 1.2,
-        "high_risk_port_count": 2.0,
-        "database_cache_port_count": 1.4,
-        "http_port_count": 0.7,
-        "version_banner_count": 1.1,
-        "dns_record_count": 0.25,
-    }
+    # Dung cung FEATURE_WEIGHTS voi exposure_severity de tranh lech logic.
     drivers = [
         {
             "feature": name,
@@ -184,7 +171,7 @@ def explain_exposure(feature_map: dict) -> list[dict]:
             "weight": weight,
             "contribution": round(feature_map[name] * weight, 3),
         }
-        for name, weight in weights.items()
+        for name, weight in FEATURE_WEIGHTS.items()
         if feature_map[name]
     ]
     return sorted(drivers, key=lambda item: item["contribution"], reverse=True)

@@ -5,8 +5,6 @@
     "::1",
     "scanme.nmap.org",
     "pentest-ground.com",
-    "https://pentest-ground.com:4280/",
-    "https://pentest-ground.com:5013/",
     "demo.testfire.net",
     "testfire.net",
     "testphp.vulnweb.com",
@@ -15,13 +13,31 @@
     "vulnweb.com"
   ],
   "notes": [
-    "Only add targets you own or are authorized to scan.",
+    "Allowlist has two groups: local loopback demo targets and public classroom/lab demo domains.",
+    "Only add targets you own, classroom/lab targets intended for testing, or targets you are authorized to scan.",
     "Unauthorized scanning may be illegal.",
     "Internal network examples: 192.168.1.100, 10.0.0.50",
     "Owned domain examples: myapp.com, test.mycompany.vn",
     "Classroom/demo testing targets included: scanme.nmap.org, pentest-ground.com, demo.testfire.net, and vulnweb.com test domains.",
     "youtube.com is intentionally not allowlisted by default because it is not a lab scanning target. Use --authorized only if you truly have permission."
   ],
+  "scope_groups": {
+    "local_loopback_demo": [
+      "localhost",
+      "127.0.0.1",
+      "::1"
+    ],
+    "public_classroom_lab_demo": [
+      "scanme.nmap.org",
+      "pentest-ground.com",
+      "demo.testfire.net",
+      "testfire.net",
+      "testphp.vulnweb.com",
+      "testhtml5.vulnweb.com",
+      "testasp.vulnweb.com",
+      "vulnweb.com"
+    ]
+  },
   "examples": {
     "internal_network": [
       "192.168.1.100",

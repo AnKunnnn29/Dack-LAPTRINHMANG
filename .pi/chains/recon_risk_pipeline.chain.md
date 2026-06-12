@@ -52,6 +52,7 @@ Python implementation:
 
 - `.pi/tools/main_pipeline.py` uses `ThreadPoolExecutor(max_workers=3)`.
 - `.pi/tools/recon/port_scanner.py` also uses per-port parallelism for faster scans.
+- `.pi/tools/recon/banner_grabber.py` also checks candidate ports in parallel.
 
 Why this matches Topic 02:
 
@@ -145,7 +146,8 @@ The agent loop:
 - Read-only recon only.
 - No exploit, no brute force, no bypass.
 - Allowlist gate in `.pi/tools/common/tool_utils.py`.
-- `--authorized` is required for targets outside the demo allowlist.
+- The demo allowlist has local loopback targets and public classroom/lab targets.
+- `--authorized` is required for targets outside that local/classroom-lab allowlist.
 - The agentic runner also has simple per-tool rate limiting.
 
 ## Handoff Summary

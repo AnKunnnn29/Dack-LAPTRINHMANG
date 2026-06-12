@@ -35,6 +35,18 @@ FEATURE_NAMES = [
     "dns_record_count",
 ]
 
+# Trong van dap, day la bang giai thich vi sao diem rui ro tang:
+# high-risk/database/version leak co weight cao hon HTTP/DNS thong thuong.
+FEATURE_WEIGHTS = {
+    "open_port_count": 0.8,
+    "sensitive_port_count": 1.2,
+    "high_risk_port_count": 2.0,
+    "database_cache_port_count": 1.4,
+    "http_port_count": 0.7,
+    "version_banner_count": 1.1,
+    "dns_record_count": 0.25,
+}
+
 BANNER_VERSION_PATTERNS = [
     r"Server:\s*.+\d+\.\d+",
     r"OpenSSH[_/ -]?\d+\.\d+",

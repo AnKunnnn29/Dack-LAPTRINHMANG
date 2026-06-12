@@ -1,8 +1,8 @@
 """STAGE 1B - DNS Enumeration.
 
 Muc dich:
-- Lay cac DNS record co ban: A, MX, NS, TXT.
-- Bo qua IP/localhost vi chung khong can DNS lookup trong demo local.
+- Lay cac DNS record co ban: A, CNAME, MX, NS, SOA, TXT.
+- Bo qua localhost; voi IP thi thu reverse DNS PTR.
 """
 
 import ipaddress
@@ -11,11 +11,13 @@ import ipaddress
 DNS_RECORD_TYPES = ["A", "CNAME", "MX", "NS", "SOA", "TXT"]
 
 
-def is_ip_or_localhost(target: str) -> bool:
-    """True neu target khong phu hop de query DNS record."""
-    if target.lower() in {"localhost", "127.0.0.1", "::1"}:
-        return True
+def is_localhost(target: str) -> bool:
+    """True neu target la loopback demo local."""
+    return target.lower() in {"localhost", "127.0.0.1", "::1"}
 
+
+def is_ip_address(target: str) -> bool:
+    """True neu target la IPv4/IPv6 address."""
     try:
         ipaddress.ip_address(target)
         return True
@@ -33,12 +35,14 @@ def _format_answer(record_type: str, answer) -> str:
 
 def enumerate_dns(domain: str, timeout: float = 2.0) -> dict:
     """Query DNS record va tra ve JSON-friendly dict."""
-    if domain.lower() in {"localhost", "127.0.0.1", "::1"}:
+    # MARK: Demo scope - localhost khong can DNS lookup trong demo local.
+    if is_localhost(domain):
         return {
             "target": domain,
             "skipped": True,
-            "message": "DNS enumeration skipped for localhost/IP target",
+            "message": "DNS enumeration skipped for localhost target",
             "records": {},
+            "errors": {},
         }
 
     try:
@@ -49,6 +53,7 @@ def enumerate_dns(domain: str, timeout: float = 2.0) -> dict:
             "skipped": True,
             "message": "dnspython is not installed",
             "records": {},
+            "errors": {},
         }
 
     resolver = dns.resolver.Resolver()
@@ -58,8 +63,8 @@ def enumerate_dns(domain: str, timeout: float = 2.0) -> dict:
     records = {}
     errors = {}
 
-    try:
-        ipaddress.ip_address(domain)
+    # MARK: IP target - khong co A/MX/NS nhu domain, nen chi thu PTR reverse DNS.
+    if is_ip_address(domain):
         try:
             records["PTR"] = [str(item).rstrip(".") for item in resolver.resolve_address(domain)]
             message = "Reverse DNS enumeration completed"
@@ -74,8 +79,6 @@ def enumerate_dns(domain: str, timeout: float = 2.0) -> dict:
             "records": records,
             "errors": errors,
         }
-    except ValueError:
-        pass
 
     # MARK: DNS record loop - moi loai record duoc thu rieng de khong lam fail ca tool.
     for record_type in DNS_RECORD_TYPES:

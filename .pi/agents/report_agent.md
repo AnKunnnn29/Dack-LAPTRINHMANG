@@ -36,8 +36,8 @@ Ghi bao cao vao `.pi/results/ket_qua.md`.
 
 ## Completion Criteria
 
-- Report co cac muc: Target, Recon Summary, Risk Level, ML Risk Model, Findings,
-  MITRE ATT&CK Mapping, Recommendations, Conclusion.
+- Report co cac muc: Target, Scope & Authorization, Recon Summary, Risk Level,
+  ML Risk Model, Findings, MITRE ATT&CK Mapping, Recommendations, Conclusion.
 - Report co ten model Isolation Forest va score/level.
 - Noi dung chi mang tinh phong thu.
 

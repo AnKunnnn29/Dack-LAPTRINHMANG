@@ -15,10 +15,11 @@ Mandatory rules:
 Required sections:
 
 1. Target
-2. Recon Summary
-3. Risk Level
-4. ML Risk Model
-5. Findings
-6. MITRE ATT&CK Mapping
-7. Recommendations
-8. Conclusion
+2. Scope & Authorization
+3. Recon Summary
+4. Risk Level
+5. ML Risk Model
+6. Findings
+7. MITRE ATT&CK Mapping
+8. Recommendations
+9. Conclusion

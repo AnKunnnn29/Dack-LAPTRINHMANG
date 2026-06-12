@@ -36,6 +36,8 @@ Tra ve JSON gom:
 - target
 - attempted_ports
 - banners
+- services
+- tls
 
 ## Completion Criteria
 

@@ -19,12 +19,13 @@ Thu thap DNS record co ban cua domain de bo sung ngu canh recon.
 
 ## Action
 
-Truy van cac record A, MX, NS, TXT bang `dnspython`.
-Neu target la localhost hoac IP address, bo qua DNS enum vi khong phu hop.
+Truy van cac record A, CNAME, MX, NS, SOA, TXT bang `dnspython`.
+Neu target la localhost thi bo qua; neu target la IP address thi thu reverse DNS PTR.
 
 ## Decision Rules
 
-- Neu target la localhost hoac IP, tra ve `skipped=true`.
+- Neu target la localhost, tra ve `skipped=true`.
+- Neu target la IP address, chi query PTR reverse DNS.
 - Chi truy van A, MX, NS, TXT; khong brute force subdomain.
 - Loi DNS duoc ghi vao `errors` thay vi lam hong toan pipeline.
 

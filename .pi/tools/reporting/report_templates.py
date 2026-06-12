@@ -10,13 +10,14 @@ Only provide defensive observations and recommendations.
 
 Required sections:
 1. Target
-2. Recon Summary
-3. Risk Level
-4. ML Risk Model
-5. Findings
-6. MITRE ATT&CK Mapping
-7. Recommendations
-8. Conclusion
+2. Scope & Authorization
+3. Recon Summary
+4. Risk Level
+5. ML Risk Model
+6. Findings
+7. MITRE ATT&CK Mapping
+8. Recommendations
+9. Conclusion
 """
 
 
@@ -43,12 +44,19 @@ def build_offline_report(profile: dict, reason: str = "No API key found") -> str
     mitre_mapping = profile.get("mitre_mapping", [])
     ml_model = profile.get("ml_model", {})
     recommendations = profile.get("recommendations", [])
+    target_exposure = profile.get("target_exposure", "unknown")
 
     lines = [
         "# Network Recon + Risk Profiler Report",
         "",
         "## Target",
         f"- Target: `{profile.get('target', 'unknown')}`",
+        f"- Exposure type: `{target_exposure}`",
+        "",
+        "## Scope & Authorization",
+        "- Scope: local loopback, classroom/lab allowlist target, or explicitly authorized target.",
+        "- Safety mode: read-only reconnaissance; no exploit, brute force, bypass, or payload testing.",
+        "- Public targets are acceptable only when they are intentionally listed as classroom/lab targets or separately authorized.",
         "",
         "## Recon Summary",
         f"- Open ports: `{open_ports}`",

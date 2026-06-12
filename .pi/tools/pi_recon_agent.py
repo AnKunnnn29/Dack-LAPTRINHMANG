@@ -198,7 +198,8 @@ class ToolRuntime:
         return {
             "error": (
                 f"target {target} is outside the allowlist. "
-                "Use localhost or pass --authorized only when you have permission."
+                "Use a local/classroom-lab allowlisted target, or pass --authorized "
+                "only when you have permission."
             )
         }
 

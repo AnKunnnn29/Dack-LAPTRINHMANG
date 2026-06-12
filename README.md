@@ -54,7 +54,7 @@ In runnable Python, this is implemented with `ThreadPoolExecutor` in
 | Python tools | `.pi/tools/recon`, `.pi/tools/risk`, `.pi/tools/reporting` |
 | Chain/orchestration | `.pi/chains/recon_risk_pipeline.chain.md` |
 | Prompt file | `.pi/prompts/report_prompt.md` |
-| End-to-end demo target | `localhost` with Python's built-in `http.server` |
+| End-to-end demo target | Primary: `localhost` with Python's built-in `http.server`; optional public classroom lab targets are documented in `.pi/data/allowed_targets.json` |
 | Week 5 agent loop extension | `.pi/tools/pi_recon_agent.py` |
 
 ## Code Design
@@ -65,7 +65,7 @@ The code is intentionally simple for oral defense:
 - Stage 1 runs three independent tools at the same time.
 - Risk scoring uses a small, explainable Isolation Forest-style anomaly model.
 - Report generation uses GPT when an API key exists and an offline template when it does not.
-- Safety gate blocks non-allowlisted targets unless `--authorized` is explicitly provided.
+- Safety gate blocks targets outside the local/classroom-lab allowlist unless `--authorized` is explicitly provided.
 
 ## Agent Design
 
@@ -95,6 +95,19 @@ OPENAI_MODEL=gpt-4o
 ```
 
 The normal pipeline still works without an API key.
+
+## Authorized Scope For Demo
+
+The allowlist in `.pi/data/allowed_targets.json` is not only localhost. It has two
+intentional groups:
+
+- Local loopback demo targets: `localhost`, `127.0.0.1`, `::1`.
+- Public classroom/lab demo targets: `scanme.nmap.org`, `pentest-ground.com`,
+  `demo.testfire.net`, and `vulnweb.com` test domains.
+
+This is why the report and risk model can discuss both local exposure and public
+exposure. Any target outside that list must use `--authorized`, meaning the user
+explicitly confirms they have permission.
 
 ## Run The Offline-Stable Pipeline
 
@@ -197,7 +210,7 @@ Short answer for "Where is the AI agent?":
 
 This project is defensive and read-only:
 
-- Scan only localhost, lab machines, or authorized targets.
+- Scan only localhost, lab machines, public classroom/lab demo targets in the allowlist, or explicitly authorized targets.
 - Do not exploit.
 - Do not brute force.
 - Do not bypass controls.

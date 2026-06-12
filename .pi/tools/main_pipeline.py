@@ -1,6 +1,7 @@
 """Main runner for Topic 02 - Network Recon + Risk Profiler.
 
 File nay la entrypoint de thuyet trinh:
+0. Stage 0: chan target khong duoc phep bang Safety Gate.
 1. Stage 1: chay 3 recon tool song song.
 2. Stage 2: gom ket qua va cham diem rui ro bang ML.
 3. Stage 3: sinh bao cao Markdown co MITRE ATT&CK mapping.
@@ -113,7 +114,13 @@ def run_pipeline(
     timeout: float,
     offline: bool = False,
 ) -> dict:
-    """Chay tron ven pipeline va tra ve duong dan cac file output."""
+    """Chay tron ven pipeline va tra ve duong dan cac file output.
+
+    Ghi chu van dap:
+    - Safety Gate phai chay truoc moi thao tac network.
+    - Stage 1 song song vi port scan, DNS enum va banner grab doc lap.
+    - Stage 2/3 chay sau vi can JSON output tu stage truoc.
+    """
     ensure_output_dirs()
     setup_logging(logs_dir() / "pipeline_run.log")
     load_env()
@@ -122,11 +129,11 @@ def run_pipeline(
     timeout = validate_timeout(timeout)
     logging.info("Pipeline started for target=%s", target)
 
-    # MARK: Safety gate - chi scan target demo hoac target da xac nhan co quyen.
+    # MARK: Safety gate - chi scan local/lab allowlist hoac target da xac nhan co quyen.
     if not is_target_allowed(target, authorized):
         message = (
-            "Permission gate blocked this target. Use localhost, 127.0.0.1, "
-            "scanme.nmap.org, or add --authorized only when you have permission."
+            "Permission gate blocked this target. Use a local/classroom-lab "
+            "allowlisted target, or add --authorized only when you have permission."
         )
         logging.warning(message)
         raise PermissionError(message)
