@@ -63,7 +63,7 @@ def scan_ports(
     timeout = validate_timeout(timeout)
     open_ports = []
 
-    max_workers = min(100, max(1, len(selected_ports)))
+    max_workers = min(50, max(1, len(selected_ports)))
 
     # MARK: Per-port parallelism - moi worker thu ket noi mot port.
     with ThreadPoolExecutor(max_workers=max_workers) as executor:

@@ -200,6 +200,7 @@ def load_env() -> None:
     try:
         from dotenv import load_dotenv
     except ImportError:
+        logging.warning("python-dotenv not installed. API keys from .env will not be loaded.")
         return
 
     load_dotenv(project_root() / ".env")

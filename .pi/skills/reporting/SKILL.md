@@ -1,3 +1,7 @@
+---
+description: Report generation skill with MITRE ATT&CK mapping and defensive recommendations
+---
+
 # Reporting Skill
 
 ## Description

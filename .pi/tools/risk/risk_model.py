@@ -190,9 +190,35 @@ def explain_exposure(feature_map: dict) -> list[dict]:
     return sorted(drivers, key=lambda item: item["contribution"], reverse=True)
 
 
-def calibrate_anomaly_score(anomaly_score: float) -> float:
-    """Chuan hoa anomaly score tho de baseline gan 0 va anomaly ro rang gan 1."""
-    return max(0.0, min(1.0, (anomaly_score - 0.45) / 0.35))
+def _compute_baseline_anomaly_scores(model: SimpleIsolationForestRiskModel) -> list[float]:
+    """Compute anomaly scores for all baseline samples."""
+    return [model.anomaly_score(sample)[0] for sample in BASELINE_SAMPLES]
+
+
+def _baseline_stats(scores: list[float]) -> dict:
+    """Compute mean, std, and max from a list of scores."""
+    count = len(scores)
+    mean = sum(scores) / count
+    variance = sum((s - mean) ** 2 for s in scores) / count
+    std = variance ** 0.5
+    return {"mean": mean, "std": std, "max": max(scores)}
+
+
+def calibrate_anomaly_score(anomaly_score: float, baseline: dict | None = None) -> float:
+    """
+    Dynamically calibrate anomaly score using baseline distribution.
+
+    Scores within 1 standard deviation above baseline mean are treated as
+    normal (0). Scores further away are scaled to [0, 1] linearly.
+    """
+    if baseline is None:
+        return max(0.0, min(1.0, anomaly_score))
+
+    threshold = baseline["mean"] + baseline["std"]
+    if anomaly_score <= threshold:
+        return 0.0
+    calibrated = (anomaly_score - threshold) / max(1e-9, 1.0 - threshold)
+    return max(0.0, min(1.0, calibrated))
 
 
 def label_from_score(score: int) -> str:
@@ -211,7 +237,10 @@ def predict_with_isolation_forest(feature_map: dict) -> dict:
     model.fit(BASELINE_SAMPLES)
 
     anomaly, average_length = model.anomaly_score(vector)
-    calibrated_anomaly = calibrate_anomaly_score(anomaly)
+    # Compute baseline statistics once for dynamic calibration
+    baseline_scores = _compute_baseline_anomaly_scores(model)
+    baseline = _baseline_stats(baseline_scores)
+    calibrated_anomaly = calibrate_anomaly_score(anomaly, baseline)
     exposure = exposure_severity(feature_map)
     combined = (calibrated_anomaly * 0.55) + (exposure * 0.45)
     predicted_score = max(0, min(10, round(combined * 10)))
@@ -227,6 +256,7 @@ def predict_with_isolation_forest(feature_map: dict) -> dict:
         "feature_vector": vector,
         "anomaly_score": anomaly,
         "calibrated_anomaly": round(calibrated_anomaly, 4),
+        "baseline_stats": baseline,
         "average_path_length": average_length,
         "exposure_severity": round(exposure, 4),
         "predicted_score": predicted_score,

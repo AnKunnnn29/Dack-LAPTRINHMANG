@@ -102,7 +102,7 @@ def grab_banners(target: str, candidate_ports: Iterable[int], timeout: float = 1
     tls = {}
     attempted_ports = [validate_port(int(port)) for port in candidate_ports]
     timeout = validate_timeout(timeout)
-    max_workers = min(100, max(1, len(attempted_ports)))
+    max_workers = min(50, max(1, len(attempted_ports)))
 
     # MARK: Per-port parallelism - moi worker thu lay banner tren mot port.
     with ThreadPoolExecutor(max_workers=max_workers) as executor:

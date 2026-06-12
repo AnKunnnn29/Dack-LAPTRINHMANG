@@ -75,6 +75,7 @@ def score_risk(port_result: dict, dns_result: dict, banner_result: dict) -> dict
             "average_path_length": prediction["average_path_length"],
             "exposure_severity": prediction["exposure_severity"],
             "risk_drivers": prediction["risk_drivers"],
+            "baseline_stats": prediction.get("baseline_stats", {}),
         },
         "mitre_mapping": build_mitre_mapping(open_ports, version_leaks, dns_result),
         "findings": build_findings(open_ports, version_leaks, dns_result),

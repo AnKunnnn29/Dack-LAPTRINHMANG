@@ -53,7 +53,7 @@ def run_recon_stage(target: str, ports: list[int], timeout: float) -> tuple[dict
         logging.info("Stage 1 started: port scan, DNS enum, and banner grab in parallel")
         futures = {
             executor.submit(scan_ports, target, ports, timeout): "port",
-            executor.submit(enumerate_dns, target): "dns",
+            executor.submit(enumerate_dns, target, timeout): "dns",
             executor.submit(grab_banners, target, ports, timeout): "banner",
         }
 
